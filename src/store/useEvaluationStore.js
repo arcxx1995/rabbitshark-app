@@ -31,6 +31,7 @@ const createChallenge = (evaluation) => ({
   earnedPoints: 0,
   totalPossiblePoints: evaluation.totalPossiblePoints,
   funded: false,
+  scenarioResults: [],
 });
 
 const getScenarioPool = (category, scenarios) => {
@@ -56,6 +57,7 @@ export const useEvaluationStore = create((set, get) => ({
   feedbackVisible: false,
   hasPurchasedChallenge: false,
   currentChallenge: null,
+  activeChallenges: [],
   pastChallenges: [],
   stats: initialStats,
   isLoadingData: false,
@@ -79,8 +81,12 @@ export const useEvaluationStore = create((set, get) => ({
     set({ selectedCategory: category });
   },
 
-  startEvaluation: async (category) => {
-    const currentChallenge = get().currentChallenge;
+  startEvaluation: async (category, challengeId) => {
+    const { activeChallenges } = get();
+    const currentChallenge =
+      activeChallenges.find((challenge) => challenge.id === challengeId) ??
+      get().currentChallenge ??
+      activeChallenges[0];
     if (!currentChallenge) return;
 
     const activeEvaluation = get().activeEvaluation;
@@ -112,16 +118,21 @@ export const useEvaluationStore = create((set, get) => ({
       feedbackVisible: false,
       stats: initialStats,
       currentChallenge: nextChallenge,
+      activeChallenges: activeChallenges.map((challenge) =>
+        challenge.id === nextChallenge.id ? nextChallenge : challenge,
+      ),
     });
   },
 
   purchaseChallenge: async () => {
     const activeEvaluation = get().activeEvaluation;
-    const currentChallenge = createChallenge(activeEvaluation);
+    const nextChallenge = createChallenge(activeEvaluation);
+    const activeChallenges = [...get().activeChallenges, nextChallenge];
 
     set({
       hasPurchasedChallenge: true,
-      currentChallenge,
+      currentChallenge: get().currentChallenge ?? nextChallenge,
+      activeChallenges,
     });
   },
 
@@ -196,7 +207,7 @@ export const useEvaluationStore = create((set, get) => ({
       currentPoolIndex >= 0 ? currentPoolIndex + 1 : currentScenarioIndex + 1;
 
     if (nextIndex >= pool.length) {
-      const { currentChallenge, pastChallenges, stats } = get();
+      const { activeChallenges, currentChallenge, pastChallenges, stats } = get();
       const score = get().getAverageScore();
       const completedChallenge = currentChallenge
         ? {
@@ -207,14 +218,20 @@ export const useEvaluationStore = create((set, get) => ({
             earnedPoints: stats.totalScore,
             totalPossiblePoints: get().getTotalPossibleScore(),
             funded: get().isFunded(),
+            scenarioResults: stats.completedScenarios,
           }
         : null;
+
+      const remainingActiveChallenges = currentChallenge
+        ? activeChallenges.filter((challenge) => challenge.id !== currentChallenge.id)
+        : activeChallenges;
 
       set({
         mode: "summary",
         feedbackVisible: false,
-        hasPurchasedChallenge: false,
-        currentChallenge: null,
+        hasPurchasedChallenge: remainingActiveChallenges.length > 0,
+        currentChallenge: remainingActiveChallenges[0] ?? null,
+        activeChallenges: remainingActiveChallenges,
         pastChallenges: completedChallenge
           ? [completedChallenge, ...pastChallenges]
           : pastChallenges,
@@ -256,6 +273,7 @@ export const useEvaluationStore = create((set, get) => ({
           score: 0,
           earnedPoints: 0,
           funded: false,
+          scenarioResults: [],
         }
       : null;
 
@@ -272,6 +290,11 @@ export const useEvaluationStore = create((set, get) => ({
       feedbackVisible: false,
       stats: initialStats,
       currentChallenge,
+      activeChallenges: currentChallenge
+        ? get().activeChallenges.map((challenge) =>
+            challenge.id === currentChallenge.id ? currentChallenge : challenge,
+          )
+        : get().activeChallenges,
     });
 
   },

@@ -8,6 +8,8 @@ import {
   setStoredLandingSession,
 } from "../lib/landingSession";
 
+const isLocalDeveloperPreview = import.meta.env.DEV;
+
 function getDisplayName(user) {
   return (
     user?.user_metadata?.name ??
@@ -70,9 +72,13 @@ async function acceptLandingSession(session) {
 }
 
 export default function AccessGate({ children }) {
-  const [status, setStatus] = useState("checking");
+  const [status, setStatus] = useState(
+    isLocalDeveloperPreview ? "accepted" : "checking",
+  );
 
   useEffect(() => {
+    if (isLocalDeveloperPreview) return;
+
     let mounted = true;
 
     async function checkAccess() {
