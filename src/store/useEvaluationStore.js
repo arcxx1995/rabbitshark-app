@@ -17,7 +17,10 @@ const roundScore = (value) => Math.round(value * 10) / 10;
 const initialEvaluation = getActiveEvaluation();
 
 const createChallenge = (evaluation) => ({
-  id: `challenge_${Date.now()}`,
+  id:
+    typeof crypto !== "undefined" && crypto.randomUUID
+      ? crypto.randomUUID()
+      : `challenge_${Date.now()}`,
   title: "Funding Challenge",
   evaluationId: evaluation.id,
   status: "Ready",
@@ -55,20 +58,45 @@ export const useEvaluationStore = create((set, get) => ({
   currentChallenge: null,
   pastChallenges: [],
   stats: initialStats,
+  isLoadingData: false,
+
+  initializeData: async () => {
+    const activeEvaluation = getActiveEvaluation();
+    const scenarios = activeEvaluation.questions;
+
+    set({
+      evaluations: getEvaluationFiles(),
+      activeEvaluation,
+      scenarios,
+      scenarioCategories: getScenarioCategories(scenarios),
+      currentScenario: scenarios[0],
+      currentStreet: scenarios[0].street,
+      isLoadingData: false,
+    });
+  },
 
   setCategory: (category) => {
     set({ selectedCategory: category });
   },
 
-  startEvaluation: (category) => {
+  startEvaluation: async (category) => {
     const currentChallenge = get().currentChallenge;
     if (!currentChallenge) return;
 
-    const activeEvaluation = getActiveEvaluation();
+    const activeEvaluation = get().activeEvaluation;
     const scenarios = activeEvaluation.questions;
     const selectedCategory = category ?? get().selectedCategory;
     const pool = getScenarioPool(selectedCategory, scenarios);
     const firstScenario = pool[0] ?? scenarios[0];
+
+    const nextChallenge = {
+      ...currentChallenge,
+      status: "In progress",
+      startedAt: currentChallenge.startedAt ?? new Date().toISOString(),
+      score: 0,
+      earnedPoints: 0,
+      funded: false,
+    };
 
     set({
       activeEvaluation,
@@ -83,23 +111,17 @@ export const useEvaluationStore = create((set, get) => ({
       selectedAction: null,
       feedbackVisible: false,
       stats: initialStats,
-      currentChallenge: {
-        ...currentChallenge,
-        status: "In progress",
-        startedAt: currentChallenge.startedAt ?? new Date().toISOString(),
-        score: 0,
-        earnedPoints: 0,
-        funded: false,
-      },
+      currentChallenge: nextChallenge,
     });
   },
 
-  purchaseChallenge: () => {
-    const activeEvaluation = getActiveEvaluation();
+  purchaseChallenge: async () => {
+    const activeEvaluation = get().activeEvaluation;
+    const currentChallenge = createChallenge(activeEvaluation);
 
     set({
       hasPurchasedChallenge: true,
-      currentChallenge: createChallenge(activeEvaluation),
+      currentChallenge,
     });
   },
 
@@ -128,7 +150,7 @@ export const useEvaluationStore = create((set, get) => ({
     }
   },
 
-  selectAction: (option) => {
+  selectAction: async (option) => {
     const { currentScenario, stats } = get();
     const maxPoints = currentScenario.points ?? 100;
     const earnedPoints = roundScore((maxPoints * option.points) / 100);
@@ -157,14 +179,14 @@ export const useEvaluationStore = create((set, get) => ({
           },
     });
 
-    get().nextScenario();
+    await get().nextScenario();
   },
 
   hideFeedback: () => {
     set({ feedbackVisible: false });
   },
 
-  nextScenario: () => {
+  nextScenario: async () => {
     const { selectedCategory, currentScenario, currentScenarioIndex, scenarios } = get();
     const pool = getScenarioPool(selectedCategory, scenarios);
     const currentPoolIndex = pool.findIndex((scenario) => {
@@ -197,6 +219,7 @@ export const useEvaluationStore = create((set, get) => ({
           ? [completedChallenge, ...pastChallenges]
           : pastChallenges,
       });
+
       return;
     }
 
@@ -221,9 +244,20 @@ export const useEvaluationStore = create((set, get) => ({
     });
   },
 
-  resetEvaluation: () => {
-    const activeEvaluation = getActiveEvaluation();
+  resetEvaluation: async () => {
+    const activeEvaluation = get().activeEvaluation;
     const scenarios = activeEvaluation.questions;
+
+    const currentChallenge = get().currentChallenge
+      ? {
+          ...get().currentChallenge,
+          status: "Ready",
+          startedAt: null,
+          score: 0,
+          earnedPoints: 0,
+          funded: false,
+        }
+      : null;
 
     set({
       activeEvaluation,
@@ -237,17 +271,9 @@ export const useEvaluationStore = create((set, get) => ({
       selectedAction: null,
       feedbackVisible: false,
       stats: initialStats,
-      currentChallenge: get().currentChallenge
-        ? {
-            ...get().currentChallenge,
-            status: "Ready",
-            startedAt: null,
-            score: 0,
-            earnedPoints: 0,
-            funded: false,
-          }
-        : null,
+      currentChallenge,
     });
+
   },
 
   getAverageScore: () => {

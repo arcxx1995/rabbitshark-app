@@ -5,6 +5,7 @@ import {
   CheckCircle2,
   ClipboardList,
   LayoutDashboard,
+  LogOut,
   Play,
   RotateCcw,
   ShieldCheck,
@@ -12,10 +13,32 @@ import {
   Target,
 } from "lucide-react";
 import ScorePanel from "./ScorePanel";
+import { clearStoredLandingSession } from "../lib/landingSession";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { useEvaluationStore } from "../store/useEvaluationStore";
+
+const landingPageUrl = import.meta.env.VITE_LANDING_PAGE_URL;
+
+function getLogoutRedirectUrl() {
+  if (landingPageUrl) return landingPageUrl;
+
+  if (document.referrer) {
+    try {
+      const referrer = new URL(document.referrer);
+      const current = new URL(window.location.href);
+
+      if (referrer.origin !== current.origin) {
+        return referrer.toString();
+      }
+    } catch {
+      // Ignore malformed referrer values and use the local fallback.
+    }
+  }
+
+  return "/";
+}
 
 export default function ScenarioDashboard() {
   const [activeScreen, setActiveScreen] = useState("dashboard");
@@ -24,6 +47,7 @@ export default function ScenarioDashboard() {
   const purchaseChallenge = useEvaluationStore((state) => state.purchaseChallenge);
   const currentChallenge = useEvaluationStore((state) => state.currentChallenge);
   const pastChallenges = useEvaluationStore((state) => state.pastChallenges);
+  const isLoadingData = useEvaluationStore((state) => state.isLoadingData);
   const stats = useEvaluationStore((state) => state.stats);
   const average = useEvaluationStore((state) => state.getAverageScore());
   const totalPossible = useEvaluationStore((state) => state.getTotalPossibleScore());
@@ -70,6 +94,10 @@ export default function ScenarioDashboard() {
     { id: "funding", label: "Funding", icon: ShieldCheck },
   ];
   const screenTitle = navItems.find((item) => item.id === activeScreen)?.label;
+  const logout = () => {
+    clearStoredLandingSession();
+    window.location.assign(getLogoutRedirectUrl());
+  };
 
   return (
     <main className="h-dvh overflow-hidden bg-room-950 px-3 py-3 text-white sm:px-6 sm:py-5 lg:px-8">
@@ -83,6 +111,14 @@ export default function ScenarioDashboard() {
               <div className="mt-1 text-xs font-bold uppercase tracking-[0.16em] text-white/40">
                 Player Console
               </div>
+              <button
+                type="button"
+                onClick={logout}
+                className="mt-4 flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-red-300/25 bg-red-500/12 px-3 text-xs font-bold uppercase tracking-[0.14em] text-red-100 transition hover:bg-red-500/20 hover:text-white"
+              >
+                <LogOut className="h-4 w-4" />
+                Log Out
+              </button>
             </div>
             <nav className="mt-4 space-y-1">
               {navItems.map((item) => {
@@ -126,6 +162,7 @@ export default function ScenarioDashboard() {
                   Evaluation
                 </Badge>
                 <Badge>No real-money play</Badge>
+                {isLoadingData ? <Badge>Loading data</Badge> : null}
               </div>
               <h1 className="mt-3 font-display text-2xl font-black tracking-tight sm:text-3xl">
                 {screenTitle}
@@ -150,6 +187,14 @@ export default function ScenarioDashboard() {
               >
                 <RotateCcw className="mr-2 h-4 w-4" />
                 Reset
+              </Button>
+              <Button
+                className="h-10 px-4 text-xs"
+                variant="danger"
+                onClick={logout}
+              >
+                <LogOut className="mr-2 h-4 w-4" />
+                Log Out
               </Button>
             </div>
           </header>

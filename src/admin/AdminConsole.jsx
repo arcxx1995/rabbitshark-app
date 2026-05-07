@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   AlertCircle,
   CheckCircle2,
@@ -22,12 +22,59 @@ export default function AdminConsole() {
   const [evaluationFiles, setEvaluationFiles] = useState(initialEvaluationFiles);
   const [activeEvaluationId, setActiveEvaluationState] = useState(getActiveEvaluationId);
   const [selectedEvaluationId, setSelectedEvaluationId] = useState(activeEvaluationId);
+  const [selectedEvaluation, setSelectedEvaluation] = useState(() =>
+    getEvaluationById(activeEvaluationId),
+  );
+  const [loading, setLoading] = useState(false);
   const [uploadMessage, setUploadMessage] = useState(null);
-  const selectedEvaluation = getEvaluationById(selectedEvaluationId);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    function loadEvaluations() {
+      setLoading(true);
+
+      try {
+        const files = getEvaluationFiles();
+        const activeId = getActiveEvaluationId();
+        const selected = getEvaluationById(selectedEvaluationId);
+
+        if (!cancelled) {
+          setEvaluationFiles(files);
+          setActiveEvaluationState(activeId);
+          setSelectedEvaluation(selected);
+          setLoading(false);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setUploadMessage({
+            type: "error",
+            text:
+              error instanceof Error
+                ? error.message
+                : "Could not load evaluations.",
+          });
+          setSelectedEvaluation(getEvaluationById(selectedEvaluationId));
+          setLoading(false);
+        }
+      }
+    }
+
+    loadEvaluations();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedEvaluationId]);
 
   const activateSelectedEvaluation = () => {
     const evaluation = setActiveEvaluationId(selectedEvaluationId);
+
     setActiveEvaluationState(evaluation.id);
+    setUploadMessage({
+      type: "success",
+      text: `${evaluation.title} is now the active evaluation.`,
+    });
   };
 
   const handleUpload = async (event) => {
@@ -44,9 +91,10 @@ export default function AdminConsole() {
       setEvaluationFiles(getEvaluationFiles());
       setSelectedEvaluationId(evaluation.id);
       setActiveEvaluationState(evaluation.id);
+      setSelectedEvaluation(evaluation);
       setUploadMessage({
         type: "success",
-        text: `Loaded ${evaluation.title} with ${evaluation.questionCount} questions.`,
+        text: `Loaded ${evaluation.title} with ${evaluation.questionCount} questions into local storage.`,
       });
     } catch (error) {
       setUploadMessage({
@@ -163,6 +211,7 @@ export default function AdminConsole() {
                     Active file
                   </Badge>
                 ) : null}
+                {loading ? <Badge>Loading</Badge> : null}
               </div>
               <h2 className="font-display text-3xl font-black tracking-tight sm:text-4xl">
                 {selectedEvaluation.title}

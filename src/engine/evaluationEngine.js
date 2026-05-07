@@ -39,6 +39,18 @@ function readUploadedEvaluations() {
   }
 }
 
+function getAllEvaluationFiles() {
+  const filesById = new Map(evaluationFiles.map((file) => [file.id, file]));
+
+  readUploadedEvaluations().forEach((file) => {
+    if (!evaluationFiles.some((builtInFile) => builtInFile.id === file.id)) {
+      filesById.set(file.id, file);
+    }
+  });
+
+  return [...filesById.values()];
+}
+
 function writeUploadedEvaluations(evaluations) {
   if (typeof window === "undefined") return;
 
@@ -232,7 +244,7 @@ export function resolveEvaluationFile(evaluationFile) {
 }
 
 export function getEvaluationFiles() {
-  return [...evaluationFiles, ...readUploadedEvaluations()].map((file) => ({
+  return getAllEvaluationFiles().map((file) => ({
     id: file.id,
     title: file.title,
     audience: file.audience ?? "Uploaded evaluation",
@@ -249,7 +261,7 @@ export function getEvaluationFiles() {
 }
 
 export function getEvaluationById(evaluationId) {
-  const allFiles = [...evaluationFiles, ...readUploadedEvaluations()];
+  const allFiles = getAllEvaluationFiles();
   const file = allFiles.find((item) => item.id === evaluationId) ?? evaluationFiles[0];
   return resolveEvaluationFile(file);
 }
