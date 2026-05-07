@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { persist } from "zustand/middleware";
 import {
   DEFAULT_FUNDED_THRESHOLD_PERCENT,
   getActiveEvaluation,
@@ -42,7 +43,8 @@ const getScenarioPool = (category, scenarios) => {
   });
 };
 
-export const useEvaluationStore = create((set, get) => ({
+export const useEvaluationStore = create(
+  persist((set, get) => ({
   evaluations: getEvaluationFiles(),
   activeEvaluation: initialEvaluation,
   scenarios: initialEvaluation.questions,
@@ -333,11 +335,20 @@ export const useEvaluationStore = create((set, get) => ({
     );
   },
 
-  isFunded: () => {
-    const { stats, scenarios } = get();
-    return (
-      stats.completedScenarios.length >= scenarios.length &&
-      get().getAverageScore() >= get().getFundedThresholdPercent()
-    );
-  },
-}));
+    isFunded: () => {
+      const { stats, scenarios } = get();
+      return (
+        stats.completedScenarios.length >= scenarios.length &&
+        get().getAverageScore() >= get().getFundedThresholdPercent()
+      );
+    },
+  }), {
+    name: "rabbitshark.challengeState",
+    partialize: (state) => ({
+      hasPurchasedChallenge: state.activeChallenges.length > 0,
+      currentChallenge: state.currentChallenge,
+      activeChallenges: state.activeChallenges,
+      pastChallenges: state.pastChallenges,
+    }),
+  }),
+);
