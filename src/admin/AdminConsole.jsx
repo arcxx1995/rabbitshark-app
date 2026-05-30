@@ -4,6 +4,7 @@ import {
   CheckCircle2,
   ExternalLink,
   FileJson2,
+  LogOut,
   ShieldCheck,
   Upload,
 } from "lucide-react";
@@ -14,6 +15,7 @@ import {
   saveUploadedEvaluation,
   setActiveEvaluationId,
 } from "../engine/evaluationEngine";
+import { signOutOfApp } from "../lib/authSession";
 import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
 
@@ -75,6 +77,16 @@ export default function AdminConsole() {
       type: "success",
       text: `${evaluation.title} is now the active evaluation.`,
     });
+  };
+
+  const logout = async () => {
+    try {
+      await signOutOfApp();
+    } catch (error) {
+      console.error("Could not sign out.", error);
+    } finally {
+      window.location.assign("/admin.html");
+    }
   };
 
   const handleUpload = async (event) => {
@@ -231,6 +243,10 @@ export default function AdminConsole() {
               >
                 <ExternalLink className="mr-2 h-5 w-5" />
                 Open Player App
+              </Button>
+              <Button variant="danger" onClick={logout}>
+                <LogOut className="mr-2 h-5 w-5" />
+                Log Out
               </Button>
             </div>
           </div>

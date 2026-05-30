@@ -7,7 +7,7 @@ import { useEvaluationStore } from "./store/useEvaluationStore";
 
 export default function App() {
   return (
-    <AccessGate>
+    <AccessGate contextLabel="Client Area">
       <AppScreens />
     </AccessGate>
   );

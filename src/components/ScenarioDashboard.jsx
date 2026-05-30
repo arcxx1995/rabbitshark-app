@@ -18,32 +18,11 @@ import {
   XCircle,
 } from "lucide-react";
 import ScorePanel from "./ScorePanel";
-import { clearStoredLandingSession } from "../lib/landingSession";
+import { signOutOfApp } from "../lib/authSession";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { useEvaluationStore } from "../store/useEvaluationStore";
-
-const landingPageUrl = import.meta.env.VITE_LANDING_PAGE_URL;
-
-function getLogoutRedirectUrl() {
-  if (landingPageUrl) return landingPageUrl;
-
-  if (document.referrer) {
-    try {
-      const referrer = new URL(document.referrer);
-      const current = new URL(window.location.href);
-
-      if (referrer.origin !== current.origin) {
-        return referrer.toString();
-      }
-    } catch {
-      // Ignore malformed referrer values and use the local fallback.
-    }
-  }
-
-  return "/";
-}
 
 const formatDate = (value) => {
   if (!value) return "Not started";
@@ -261,9 +240,14 @@ export default function ScenarioDashboard() {
   const failPayment = () => {
     setActiveScreen("dashboard");
   };
-  const logout = () => {
-    clearStoredLandingSession();
-    window.location.assign(getLogoutRedirectUrl());
+  const logout = async () => {
+    try {
+      await signOutOfApp();
+    } catch (error) {
+      console.error("Could not sign out.", error);
+    } finally {
+      window.location.assign("/");
+    }
   };
 
   if (activeScreen === "payments") {
