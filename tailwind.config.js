@@ -2,39 +2,66 @@
 export default {
   content: ["./index.html", "./src/**/*.{js,jsx}"],
   theme: {
+    colors: {
+      transparent: "transparent",
+      current: "currentColor",
+      black: "#020202",
+      green: "#00FFAB",
+      white: "#FCF8F8",
+      ink: "var(--color-black)",
+      sand: "var(--color-white)",
+      shell: "var(--color-white)",
+      tide: "var(--color-green)",
+      foam: "var(--color-white)",
+      coral: "var(--color-green)",
+      red: {
+        100: "#ffe8eb",
+        200: "#ffc7cf",
+        300: "#ff98a6",
+        400: "#ff6b7d",
+        500: "#ff4159",
+      },
+      sky: {
+        400: "#FCF8F8",
+      },
+    },
     extend: {
       fontFamily: {
-        display: ["Sora", "ui-sans-serif", "system-ui"],
-        sans: ["Manrope", "ui-sans-serif", "system-ui"],
+        display: ["var(--font-gertika)", "TT Gertika", "Arial", "sans-serif"],
+        sans: ["var(--font-gertika)", "TT Gertika", "Arial", "sans-serif"],
       },
       colors: {
         room: {
-          950: "#050706",
-          900: "#07110d",
-          800: "#0b1913",
+          950: "#020202",
+          900: "#070a09",
+          800: "#0d1210",
         },
         felt: {
-          900: "#06291f",
-          800: "#0b4b35",
-          700: "#10734d",
-          500: "#20b26f",
+          900: "#021a12",
+          800: "#003d29",
+          700: "#00b87d",
+          500: "#00FFAB",
         },
         gold: {
-          500: "#d8b968",
-          400: "#f2d78b",
+          500: "#00FFAB",
+          400: "#00FFAB",
+          300: "#73ffd0",
         },
         danger: {
-          500: "#f05d5e",
+          500: "#ff4159",
         },
       },
       boxShadow: {
-        table: "0 45px 130px rgba(0,0,0,.65), inset 0 0 80px rgba(255,255,255,.08)",
-        card: "0 16px 40px rgba(0,0,0,.32)",
-        glow: "0 0 42px rgba(32,178,111,.32)",
+        table: "0 45px 130px rgba(0,0,0,.72), inset 0 0 80px rgba(0,255,171,.08)",
+        card: "0 16px 42px rgba(0,0,0,.38)",
+        glow: "0 0 42px rgba(0,255,171,.28)",
+        tide: "0 24px 90px rgba(0,0,0,.72)",
       },
       backgroundImage: {
-        felt: "radial-gradient(circle at 50% 45%, rgba(44,185,119,.28), rgba(7,64,46,.7) 42%, rgba(3,26,20,1) 76%)",
-        room: "radial-gradient(circle at 50% 10%, rgba(41,90,72,.45), transparent 33%), radial-gradient(circle at 12% 70%, rgba(216,185,104,.14), transparent 28%), linear-gradient(135deg, #050706 0%, #07110d 46%, #0b1913 100%)",
+        aurora:
+          "radial-gradient(circle at 50% 0%, color-mix(in srgb, #00FFAB 20%, transparent), transparent 34%), linear-gradient(180deg, #020202, #020202)",
+        felt: "radial-gradient(circle at 50% 45%, rgba(0,255,171,.18), rgba(0,46,31,.78) 42%, rgba(2,2,2,1) 78%)",
+        room: "radial-gradient(circle at 50% 0%, rgba(0,255,171,.18), transparent 34%), linear-gradient(180deg, #020202 0%, #020202 100%)",
       },
       keyframes: {
         shimmer: {

@@ -2,12 +2,12 @@ import { cn } from "../../lib/utils";
 
 const variants = {
   default:
-    "bg-gold-500 text-room-950 hover:bg-gold-400 shadow-[0_14px_34px_rgba(216,185,104,.22)]",
+    "bg-green text-black hover:bg-white shadow-[0_14px_34px_rgba(0,255,171,.2)]",
   secondary:
-    "bg-white/10 text-white hover:bg-white/16 border border-white/12",
-  ghost: "text-white/75 hover:bg-white/10 hover:text-white",
-  danger: "bg-danger-500 text-white hover:bg-red-400",
-  felt: "bg-felt-700 text-white hover:bg-felt-500 shadow-glow",
+    "border border-green/25 bg-white/5 text-green hover:bg-white/10 hover:text-green",
+  ghost: "text-white/72 hover:bg-white/10 hover:text-green",
+  danger: "border border-red-300/30 bg-red-500/10 text-red-100 hover:bg-red-500/18",
+  selected: "border border-green bg-green text-black hover:bg-white shadow-glow",
 };
 
 const sizes = {
@@ -27,7 +27,7 @@ export function Button({
     <button
       type={type}
       className={cn(
-        "inline-flex items-center justify-center rounded-full font-bold uppercase tracking-[0.14em] transition duration-200 disabled:pointer-events-none disabled:opacity-45",
+        "inline-flex items-center justify-center rounded-full font-bold uppercase tracking-[0.14em] transition duration-200 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50",
         variants[variant],
         sizes[size],
         className,
