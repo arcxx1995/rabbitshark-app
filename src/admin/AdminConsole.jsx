@@ -283,22 +283,6 @@ export default function AdminConsole() {
                 </div>
               </div>
 
-              <label className="mb-4 flex min-h-24 cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-green/35 bg-green/10 px-4 py-5 text-center transition hover:bg-green/15">
-                <Upload className="mb-2 h-6 w-6 text-green" />
-                <span className="text-sm font-bold uppercase tracking-[0.14em] text-green">
-                  Upload Evaluation JSON
-                </span>
-                <span className="mt-1 text-xs leading-5 text-white/48">
-                  Valid files are saved to Supabase.
-                </span>
-                <input
-                  className="sr-only"
-                  type="file"
-                  accept="application/json,.json"
-                  onChange={handleUpload}
-                />
-              </label>
-
               <div className="mb-4 grid gap-2">
                 <button
                   type="button"
@@ -553,6 +537,22 @@ export default function AdminConsole() {
                   </p>
 
                   <div className="mt-6 rounded-[1.5rem] border border-white/10 bg-black/60 p-5">
+                    <label className="mb-4 flex min-h-24 cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-green/35 bg-green/10 px-4 py-5 text-center transition hover:bg-green/15">
+                      <Upload className="mb-2 h-6 w-6 text-green" />
+                      <span className="text-sm font-bold uppercase tracking-[0.14em] text-green">
+                        Upload Evaluation JSON
+                      </span>
+                      <span className="mt-1 text-xs leading-5 text-white/48">
+                        Save the evaluation file, then create a challenge from it.
+                      </span>
+                      <input
+                        className="sr-only"
+                        type="file"
+                        accept="application/json,.json"
+                        onChange={handleUpload}
+                      />
+                    </label>
+
                     <label className="block">
                       <span className="text-xs font-bold uppercase tracking-[0.14em] text-white/58">
                         Challenge Name
