@@ -124,6 +124,16 @@ The current table renderer is tuned for:
 - 6-max positions: `BTN`, `SB`, `BB`, `UTG`, `HJ`, `CO`
 - 9-max positions: `BTN`, `SB`, `BB`, `UTG`, `UTG+1`, `MP`, `LJ`, `HJ`, `CO`
 
+## Standard Player Names
+
+Use the same Rabbitshark player names in every scenario.
+
+- Hero name must always be `Hero`.
+- 6-max villain names must come from: `Astra`, `Vector`, `Kaito`, `Nova`, `Mika`.
+- 9-max villain names must come from: `Astra`, `Vector`, `Kaito`, `Nova`, `Mika`, `Orbit`, `Rin`, `Sol`.
+- Do not use generic names like `Player 1`, `Villain`, `BTN Player`, or random new names.
+- Positions can change by scenario, but the name pool should stay consistent.
+
 ## LLM Prompt Template
 
 Use this when generating files:
@@ -144,6 +154,9 @@ Requirements:
 - Each option must include label, type, points, feedback.
 - option points must be between 0 and 100, and exactly one option should usually be 100.
 - Use 6-max or 9-max tableFormat only.
+- Hero name must always be Hero.
+- For 6-max, villain names must come from Astra, Vector, Kaito, Nova, Mika.
+- For 9-max, villain names must come from Astra, Vector, Kaito, Nova, Mika, Orbit, Rin, Sol.
 - Keep previousActions in chronological order and end immediately before the decision point.
 - Make every question id unique.
 ```

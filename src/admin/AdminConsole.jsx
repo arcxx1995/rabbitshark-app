@@ -2,82 +2,121 @@ import { useEffect, useMemo, useState } from "react";
 import {
   AlertCircle,
   CheckCircle2,
-  ExternalLink,
+  Database,
   FileJson2,
   LogOut,
+  Search,
   ShieldCheck,
   Upload,
+  UserPlus,
 } from "lucide-react";
 import {
-  getActiveEvaluationId,
-  getEvaluationById,
-  getEvaluationFiles,
-  saveUploadedEvaluation,
-  setActiveEvaluationId,
-} from "../engine/evaluationEngine";
+  assignChallengeToUser,
+  createChallengeForEvaluation,
+  listDatabaseChallenges,
+  listDatabaseEvaluationFiles,
+  saveEvaluationFileToDatabase,
+  searchProfiles,
+} from "../lib/challengeDatabase";
 import { signOutOfApp } from "../lib/authSession";
 import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
 
+function formatDate(value) {
+  if (!value) return "Not set";
+
+  return new Date(value).toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
 export default function AdminConsole() {
-  const initialEvaluationFiles = useMemo(() => getEvaluationFiles(), []);
-  const [evaluationFiles, setEvaluationFiles] = useState(initialEvaluationFiles);
-  const [activeEvaluationId, setActiveEvaluationState] = useState(getActiveEvaluationId);
-  const [selectedEvaluationId, setSelectedEvaluationId] = useState(activeEvaluationId);
-  const [selectedEvaluation, setSelectedEvaluation] = useState(() =>
-    getEvaluationById(activeEvaluationId),
-  );
-  const [loading, setLoading] = useState(false);
-  const [uploadMessage, setUploadMessage] = useState(null);
+  const [evaluationFiles, setEvaluationFiles] = useState([]);
+  const [challenges, setChallenges] = useState([]);
+  const [selectedEvaluationId, setSelectedEvaluationId] = useState("");
+  const [selectedChallengeId, setSelectedChallengeId] = useState("");
+  const [challengeName, setChallengeName] = useState("");
+  const [userQuery, setUserQuery] = useState("");
+  const [userResults, setUserResults] = useState([]);
+  const [selectedUser, setSelectedUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [message, setMessage] = useState(null);
+
+  const selectedEvaluation = useMemo(() => {
+    return evaluationFiles.find((file) => file.id === selectedEvaluationId);
+  }, [evaluationFiles, selectedEvaluationId]);
+
+  const selectedChallenge = useMemo(() => {
+    return challenges.find((challenge) => challenge.id === selectedChallengeId);
+  }, [challenges, selectedChallengeId]);
+
+  async function loadAdminData() {
+    setLoading(true);
+
+    try {
+      const [files, challengeRows] = await Promise.all([
+        listDatabaseEvaluationFiles(),
+        listDatabaseChallenges(),
+      ]);
+
+      setEvaluationFiles(files);
+      setChallenges(challengeRows);
+      setSelectedEvaluationId((currentId) => currentId || files[0]?.id || "");
+      setSelectedChallengeId((currentId) => currentId || challengeRows[0]?.id || "");
+      setLoading(false);
+    } catch (error) {
+      setLoading(false);
+      setMessage({
+        type: "error",
+        text:
+          error instanceof Error
+            ? error.message
+            : "Could not load database admin data.",
+      });
+    }
+  }
+
+  useEffect(() => {
+    loadAdminData();
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
 
-    function loadEvaluations() {
-      setLoading(true);
+    async function runSearch() {
+      if (userQuery.trim().length < 2) {
+        setUserResults([]);
+        return;
+      }
 
       try {
-        const files = getEvaluationFiles();
-        const activeId = getActiveEvaluationId();
-        const selected = getEvaluationById(selectedEvaluationId);
+        const results = await searchProfiles(userQuery);
 
         if (!cancelled) {
-          setEvaluationFiles(files);
-          setActiveEvaluationState(activeId);
-          setSelectedEvaluation(selected);
-          setLoading(false);
+          setUserResults(results);
         }
       } catch (error) {
         if (!cancelled) {
-          setUploadMessage({
+          setMessage({
             type: "error",
             text:
               error instanceof Error
                 ? error.message
-                : "Could not load evaluations.",
+                : "Could not search users.",
           });
-          setSelectedEvaluation(getEvaluationById(selectedEvaluationId));
-          setLoading(false);
         }
       }
     }
 
-    loadEvaluations();
+    const timeoutId = window.setTimeout(runSearch, 250);
 
     return () => {
       cancelled = true;
+      window.clearTimeout(timeoutId);
     };
-  }, [selectedEvaluationId]);
-
-  const activateSelectedEvaluation = () => {
-    const evaluation = setActiveEvaluationId(selectedEvaluationId);
-
-    setActiveEvaluationState(evaluation.id);
-    setUploadMessage({
-      type: "success",
-      text: `${evaluation.title} is now the active evaluation.`,
-    });
-  };
+  }, [userQuery]);
 
   const logout = async () => {
     try {
@@ -98,20 +137,84 @@ export default function AdminConsole() {
     try {
       const content = await file.text();
       const parsedEvaluation = JSON.parse(content);
-      const evaluation = saveUploadedEvaluation(parsedEvaluation);
+      const savedFile = await saveEvaluationFileToDatabase(parsedEvaluation);
 
-      setEvaluationFiles(getEvaluationFiles());
-      setSelectedEvaluationId(evaluation.id);
-      setActiveEvaluationState(evaluation.id);
-      setSelectedEvaluation(evaluation);
-      setUploadMessage({
+      setMessage({
         type: "success",
-        text: `Loaded ${evaluation.title} with ${evaluation.questionCount} questions into local storage.`,
+        text: `Saved ${savedFile.evaluation.title} to the database.`,
       });
+      await loadAdminData();
+      setSelectedEvaluationId(savedFile.id);
+      setChallengeName(savedFile.evaluation.title);
     } catch (error) {
-      setUploadMessage({
+      setMessage({
         type: "error",
-        text: error instanceof Error ? error.message : "Could not load JSON file.",
+        text: error instanceof Error ? error.message : "Could not save JSON file.",
+      });
+    }
+  };
+
+  const handleCreateChallenge = async () => {
+    if (!selectedEvaluation) {
+      setMessage({ type: "error", text: "Select an evaluation file first." });
+      return;
+    }
+
+    const name = challengeName.trim() || selectedEvaluation.evaluation.title;
+
+    try {
+      const challenge = await createChallengeForEvaluation({
+        name,
+        evaluationFileId: selectedEvaluation.id,
+      });
+
+      setMessage({
+        type: "success",
+        text: `Created challenge ${challenge.name}.`,
+      });
+      await loadAdminData();
+      setSelectedChallengeId(challenge.id);
+      setChallengeName("");
+    } catch (error) {
+      setMessage({
+        type: "error",
+        text:
+          error instanceof Error
+            ? error.message
+            : "Could not create challenge.",
+      });
+    }
+  };
+
+  const handleAssignChallenge = async () => {
+    if (!selectedChallenge || !selectedUser) {
+      setMessage({
+        type: "error",
+        text: "Select a challenge and a user before assigning.",
+      });
+      return;
+    }
+
+    try {
+      await assignChallengeToUser({
+        challengeId: selectedChallenge.id,
+        userId: selectedUser.id,
+      });
+
+      setMessage({
+        type: "success",
+        text: `Assigned ${selectedChallenge.name} to ${selectedUser.email}.`,
+      });
+      setUserQuery("");
+      setUserResults([]);
+      setSelectedUser(null);
+    } catch (error) {
+      setMessage({
+        type: "error",
+        text:
+          error instanceof Error
+            ? error.message
+            : "Could not assign challenge.",
       });
     }
   };
@@ -129,166 +232,273 @@ export default function AdminConsole() {
             </div>
           </header>
 
-          <div className="mt-10 grid gap-5 xl:grid-cols-[360px_1fr]">
+          <div className="mt-10 grid gap-5 xl:grid-cols-[380px_1fr]">
             <aside className="glass-panel rounded-[1.75rem] p-5">
-          <div className="mb-5 flex items-center gap-3">
-            <div className="grid h-11 w-11 place-items-center rounded-2xl border border-green/20 bg-green/10 text-green">
-              <ShieldCheck size={22} />
-            </div>
-            <div>
-              <h1 className="font-display text-2xl font-black tracking-tight">
-                Developer Console
-              </h1>
-              <p className="mt-1 text-xs font-semibold uppercase tracking-[0.14em] text-white/42">
-                Evaluation file control
-              </p>
-            </div>
-          </div>
+              <div className="mb-5 flex items-center gap-3">
+                <div className="grid h-11 w-11 place-items-center rounded-2xl border border-green/20 bg-green/10 text-green">
+                  <ShieldCheck size={22} />
+                </div>
+                <div>
+                  <h1 className="font-display text-2xl font-black">
+                    Developer Console
+                  </h1>
+                  <p className="mt-1 text-xs font-semibold uppercase tracking-[0.14em] text-white/42">
+                    Database challenge control
+                  </p>
+                </div>
+              </div>
 
-          <label className="mb-4 flex min-h-24 cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-green/35 bg-green/10 px-4 py-5 text-center transition hover:bg-green/15">
-            <Upload className="mb-2 h-6 w-6 text-green" />
-            <span className="text-sm font-bold uppercase tracking-[0.14em] text-green">
-              Upload JSON File
-            </span>
-            <span className="mt-1 text-xs leading-5 text-white/48">
-              Must contain exactly 25 engine-ready questions.
-            </span>
-            <input
-              className="sr-only"
-              type="file"
-              accept="application/json,.json"
-              onChange={handleUpload}
-            />
-          </label>
+              <label className="mb-4 flex min-h-24 cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-green/35 bg-green/10 px-4 py-5 text-center transition hover:bg-green/15">
+                <Upload className="mb-2 h-6 w-6 text-green" />
+                <span className="text-sm font-bold uppercase tracking-[0.14em] text-green">
+                  Upload Evaluation JSON
+                </span>
+                <span className="mt-1 text-xs leading-5 text-white/48">
+                  Valid files are saved to Supabase.
+                </span>
+                <input
+                  className="sr-only"
+                  type="file"
+                  accept="application/json,.json"
+                  onChange={handleUpload}
+                />
+              </label>
 
-          {uploadMessage ? (
-            <div
-              className={[
-                "mb-4 flex gap-2 rounded-2xl border px-3 py-2 text-sm leading-5",
-                uploadMessage.type === "success"
-                  ? "border-green/30 bg-green/10 text-green"
-                  : "border-red-300/30 bg-red-500/10 text-red-200",
-              ].join(" ")}
-            >
-              {uploadMessage.type === "success" ? (
-                <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
-              ) : (
-                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-              )}
-              <span>{uploadMessage.text}</span>
-            </div>
-          ) : null}
-
-          <div className="space-y-3">
-            {evaluationFiles.map((file) => {
-              const selected = file.id === selectedEvaluationId;
-              const active = file.id === activeEvaluationId;
-
-              return (
-                <button
-                  key={file.id}
-                  type="button"
-                  onClick={() => setSelectedEvaluationId(file.id)}
+              {message ? (
+                <div
                   className={[
-                    "w-full rounded-2xl border p-4 text-left transition",
-                    selected
-                      ? "border-green bg-green/10"
-                      : "border-white/10 bg-black/20 hover:border-white/20 hover:bg-white/[0.06]",
+                    "mb-4 flex gap-2 rounded-2xl border px-3 py-2 text-sm leading-5",
+                    message.type === "success"
+                      ? "border-green/30 bg-green/10 text-green"
+                      : "border-red-300/30 bg-red-500/10 text-red-200",
                   ].join(" ")}
                 >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="font-display text-lg font-bold leading-tight">
-                        {file.title}
-                      </div>
-                      <div className="mt-1 text-xs text-white/52">{file.id}</div>
-                    </div>
-                    {active ? (
-                      <CheckCircle2 className="h-5 w-5 shrink-0 text-green" />
-                    ) : null}
-                  </div>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    <Badge>{file.questionCount} questions</Badge>
-                    <Badge>{file.source}</Badge>
-                    <Badge className={file.isValid ? "text-green" : "text-red-300"}>
-                      {file.isValid ? "Valid" : "Invalid"}
-                    </Badge>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        </aside>
+                  {message.type === "success" ? (
+                    <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+                  ) : (
+                    <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                  )}
+                  <span>{message.text}</span>
+                </div>
+              ) : null}
 
-        <section className="glass-panel rounded-[1.75rem] p-5 sm:p-7">
-          <div className="flex flex-col gap-4 border-b border-white/10 pb-5 lg:flex-row lg:items-start lg:justify-between">
-            <div className="min-w-0">
-              <div className="mb-3 flex flex-wrap gap-2">
-                <Badge>{selectedEvaluation.audience}</Badge>
-                <Badge>v{selectedEvaluation.version}</Badge>
-                <Badge>
-                  {evaluationFiles.find((file) => file.id === selectedEvaluation.id)?.source}
-                </Badge>
-                {selectedEvaluation.id === activeEvaluationId ? (
-                  <Badge className="border-green/45 text-green">
-                    Active file
-                  </Badge>
+              <div className="space-y-3">
+                <div className="text-xs font-bold uppercase tracking-[0.16em] text-white/42">
+                  Evaluation Files
+                </div>
+                {loading ? <Badge>Loading database</Badge> : null}
+                {evaluationFiles.length === 0 && !loading ? (
+                  <div className="rounded-2xl border border-white/10 bg-black/20 p-4 text-sm leading-6 text-white/58">
+                    No database evaluation files yet. Upload a valid JSON file to begin.
+                  </div>
                 ) : null}
-                {loading ? <Badge>Loading</Badge> : null}
-              </div>
-              <h2 className="font-display text-3xl font-black tracking-tight sm:text-4xl">
-                {selectedEvaluation.title}
-              </h2>
-              <p className="mt-3 max-w-3xl text-sm leading-6 text-white/62">
-                {selectedEvaluation.description}
-              </p>
-            </div>
-            <div className="flex shrink-0 flex-wrap gap-3">
-              <Button onClick={activateSelectedEvaluation}>
-                <FileJson2 className="mr-2 h-5 w-5" />
-                Set Active File
-              </Button>
-              <Button
-                variant="secondary"
-                onClick={() => window.open("/", "_blank", "noopener,noreferrer")}
-              >
-                <ExternalLink className="mr-2 h-5 w-5" />
-                Open Player App
-              </Button>
-              <Button variant="danger" onClick={logout}>
-                <LogOut className="mr-2 h-5 w-5" />
-                Log Out
-              </Button>
-            </div>
-          </div>
+                {evaluationFiles.map((file) => {
+                  const selected = file.id === selectedEvaluationId;
 
-          <div className="mt-5 grid gap-3 md:grid-cols-2">
-            {selectedEvaluation.questions.map((question) => (
-              <div
-                key={question.id}
-                className="rounded-2xl border border-white/10 bg-black/22 p-4"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <div className="text-xs font-bold uppercase tracking-[0.16em] text-green">
-                      Question {question.questionNumber}
-                    </div>
-                    <div className="mt-1 font-display text-lg font-bold">
-                      {question.title}
-                    </div>
+                  return (
+                    <button
+                      key={file.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedEvaluationId(file.id);
+                        setChallengeName(file.evaluation.title);
+                      }}
+                      className={[
+                        "w-full rounded-2xl border p-4 text-left transition",
+                        selected
+                          ? "border-green bg-green/10"
+                          : "border-white/10 bg-black/20 hover:border-white/20 hover:bg-white/[0.06]",
+                      ].join(" ")}
+                    >
+                      <div className="font-display text-lg font-bold leading-tight">
+                        {file.evaluation.title}
+                      </div>
+                      <div className="mt-1 text-xs text-white/52">{file.slug}</div>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <Badge>{file.questionCount} questions</Badge>
+                        <Badge>DB</Badge>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </aside>
+
+            <section className="glass-panel rounded-[1.75rem] p-5 sm:p-7">
+              <div className="grid gap-5 lg:grid-cols-[1fr_0.95fr]">
+                <div>
+                  <div className="mb-3 flex flex-wrap gap-2">
+                    <Badge>Step 1</Badge>
+                    <Badge>Evaluation to challenge</Badge>
                   </div>
-                  <Badge>{question.street}</Badge>
+                  <h2 className="font-display text-3xl font-black sm:text-4xl">
+                    Create a challenge from an uploaded file.
+                  </h2>
+                  <p className="mt-3 max-w-3xl text-sm leading-6 text-white/62">
+                    Uploaded evaluation files live in Supabase. A challenge points
+                    to one evaluation file, then that challenge can be assigned to
+                    a specific user.
+                  </p>
+
+                  <div className="mt-6 rounded-[1.5rem] border border-white/10 bg-black/60 p-5">
+                    <label className="block">
+                      <span className="text-xs font-bold uppercase tracking-[0.14em] text-white/58">
+                        Challenge Name
+                      </span>
+                      <input
+                        className="mt-2 h-12 w-full rounded-xl border border-white/10 bg-white/5 px-4 text-sm text-green outline-none placeholder:text-white/35 focus:border-green"
+                        value={challengeName}
+                        onChange={(event) => setChallengeName(event.target.value)}
+                        placeholder="100K Cash Evaluation"
+                      />
+                    </label>
+                    <Button className="mt-4 w-full" onClick={handleCreateChallenge}>
+                      <FileJson2 className="mr-2 h-5 w-5" />
+                      Create Challenge
+                    </Button>
+                  </div>
+
+                  {selectedEvaluation ? (
+                    <div className="mt-5 rounded-[1.5rem] border border-white/10 bg-white/[0.04] p-5">
+                      <div className="flex items-start justify-between gap-4">
+                        <div>
+                          <div className="text-xs font-bold uppercase tracking-[0.16em] text-green">
+                            Selected Evaluation
+                          </div>
+                          <h3 className="mt-2 font-display text-2xl font-bold">
+                            {selectedEvaluation.evaluation.title}
+                          </h3>
+                          <p className="mt-2 text-sm leading-6 text-white/58">
+                            {selectedEvaluation.evaluation.description}
+                          </p>
+                        </div>
+                        <Database className="h-6 w-6 shrink-0 text-green" />
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
-                <p className="mt-3 line-clamp-2 text-sm leading-6 text-white/58">
-                  {question.decisionPoint}
-                </p>
-                <div className="mt-3 flex items-center justify-between gap-3 text-xs text-white/38">
-                  <span>Source template: {question.sourceScenarioId ?? "Uploaded"}</span>
-                  <span className="font-bold text-green">{question.points} pts</span>
+
+                <div>
+                  <div className="mb-3 flex flex-wrap gap-2">
+                    <Badge>Step 2</Badge>
+                    <Badge>Challenge to user</Badge>
+                  </div>
+                  <h2 className="font-display text-3xl font-black sm:text-4xl">
+                    Assign the challenge.
+                  </h2>
+                  <p className="mt-3 text-sm leading-6 text-white/62">
+                    Search profiles by email or name, select a user, then assign
+                    the selected challenge. It appears on that user's dashboard.
+                  </p>
+
+                  <div className="mt-6 rounded-[1.5rem] border border-white/10 bg-black/60 p-5">
+                    <label className="block">
+                      <span className="text-xs font-bold uppercase tracking-[0.14em] text-white/58">
+                        Select Challenge
+                      </span>
+                      <select
+                        className="mt-2 h-12 w-full rounded-xl border border-white/10 bg-black px-4 text-sm text-green outline-none focus:border-green"
+                        value={selectedChallengeId}
+                        onChange={(event) => setSelectedChallengeId(event.target.value)}
+                      >
+                        <option value="">Choose challenge</option>
+                        {challenges.map((challenge) => (
+                          <option key={challenge.id} value={challenge.id}>
+                            {challenge.name}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+
+                    <label className="mt-4 block">
+                      <span className="text-xs font-bold uppercase tracking-[0.14em] text-white/58">
+                        Search User
+                      </span>
+                      <div className="mt-2 flex h-12 items-center gap-3 rounded-xl border border-white/10 bg-white/5 px-3 focus-within:border-green">
+                        <Search className="h-4 w-4 text-white/45" />
+                        <input
+                          className="min-w-0 flex-1 bg-transparent text-sm text-green outline-none placeholder:text-white/35"
+                          value={userQuery}
+                          onChange={(event) => setUserQuery(event.target.value)}
+                          placeholder="developer@example.com"
+                        />
+                      </div>
+                    </label>
+
+                    <div className="mt-3 grid gap-2">
+                      {userResults.map((user) => (
+                        <button
+                          key={user.id}
+                          type="button"
+                          className={[
+                            "rounded-xl border px-3 py-3 text-left text-sm transition",
+                            selectedUser?.id === user.id
+                              ? "border-green bg-green/10"
+                              : "border-white/10 bg-white/5 hover:border-white/20",
+                          ].join(" ")}
+                          onClick={() => setSelectedUser(user)}
+                        >
+                          <div className="font-bold text-green">{user.email}</div>
+                          <div className="mt-1 text-xs text-white/45">
+                            {user.display_name || user.id}
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+
+                    {selectedUser ? (
+                      <div className="mt-4 rounded-xl border border-green/25 bg-green/10 p-3 text-sm text-green">
+                        Selected {selectedUser.email}
+                      </div>
+                    ) : null}
+
+                    <Button className="mt-4 w-full" onClick={handleAssignChallenge}>
+                      <UserPlus className="mr-2 h-5 w-5" />
+                      Assign Challenge
+                    </Button>
+                  </div>
                 </div>
               </div>
-            ))}
-          </div>
+
+              <div className="mt-6 border-t border-white/10 pt-5">
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <h3 className="font-display text-xl font-bold">Database Challenges</h3>
+                  <Badge>{challenges.length} total</Badge>
+                </div>
+                <div className="grid gap-3 md:grid-cols-2">
+                  {challenges.map((challenge) => (
+                    <button
+                      key={challenge.id}
+                      type="button"
+                      className={[
+                        "rounded-2xl border p-4 text-left transition",
+                        selectedChallengeId === challenge.id
+                          ? "border-green bg-green/10"
+                          : "border-white/10 bg-black/22 hover:border-white/20",
+                      ].join(" ")}
+                      onClick={() => setSelectedChallengeId(challenge.id)}
+                    >
+                      <div className="font-display text-lg font-bold">
+                        {challenge.name}
+                      </div>
+                      <div className="mt-2 text-xs text-white/45">
+                        Created {formatDate(challenge.created_at)}
+                      </div>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <Badge>{challenge.evaluation_files?.title ?? "Evaluation"}</Badge>
+                        <Badge>Assignable</Badge>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="mt-6 flex flex-wrap gap-3 border-t border-white/10 pt-5">
+                <Button variant="danger" onClick={logout}>
+                  <LogOut className="mr-2 h-5 w-5" />
+                  Log Out
+                </Button>
+              </div>
             </section>
           </div>
         </div>

@@ -8,6 +8,11 @@ export const REQUIRED_QUESTION_COUNT = 25;
 export const DEFAULT_QUESTION_POINTS = 100;
 export const DEFAULT_FUNDED_THRESHOLD_PERCENT = 80;
 
+export const STANDARD_PLAYER_NAMES_BY_TABLE_FORMAT = {
+  "6-max": ["Astra", "Vector", "Kaito", "Nova", "Mika"],
+  "9-max": ["Astra", "Vector", "Kaito", "Nova", "Mika", "Orbit", "Rin", "Sol"],
+};
+
 const evaluationFiles = [
   cashFoundationsEvaluation,
   tournamentIcmEvaluation,
@@ -115,10 +120,23 @@ function requirePlayer(value, path, options = {}) {
   requireNumber(value.stack, `${path}.stack`);
 
   if (options.hero) {
+    if (value.name !== "Hero") {
+      throw new Error(`${path}.name must be "Hero".`);
+    }
+
     requireStringArray(value.cards, `${path}.cards`, 2);
   }
 
   if (!options.hero) {
+    const standardNames =
+      STANDARD_PLAYER_NAMES_BY_TABLE_FORMAT[options.tableFormat] ?? [];
+
+    if (standardNames.length > 0 && !standardNames.includes(value.name)) {
+      throw new Error(
+        `${path}.name must use a standard Rabbitshark player name: ${standardNames.join(", ")}.`,
+      );
+    }
+
     requireString(value.status, `${path}.status`);
   }
 }
@@ -139,7 +157,9 @@ function validateScenarioQuestion(question, path) {
   }
 
   question.villains.forEach((villain, index) => {
-    requirePlayer(villain, `${path}.villains[${index}]`);
+    requirePlayer(villain, `${path}.villains[${index}]`, {
+      tableFormat: question.tableFormat,
+    });
   });
 
   requireStringArray(question.board, `${path}.board`);

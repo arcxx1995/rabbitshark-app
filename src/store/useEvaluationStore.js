@@ -6,6 +6,11 @@ import {
   getEvaluationFiles,
   getScenarioCategories,
 } from "../engine/evaluationEngine";
+import {
+  completeAssignedChallenge,
+  getAssignedChallengesForCurrentUser,
+  markAssignedChallengeStarted,
+} from "../lib/challengeDatabase";
 import { getBestOption, getGrade } from "../lib/utils";
 
 const initialStats = {
@@ -65,6 +70,55 @@ export const useEvaluationStore = create(
   isLoadingData: false,
 
   initializeData: async () => {
+    set({ isLoadingData: true });
+
+    try {
+      const assignedChallenges = await getAssignedChallengesForCurrentUser();
+
+      if (assignedChallenges.length > 0) {
+        const currentChallenge = assignedChallenges[0];
+        const activeEvaluation = currentChallenge.evaluation;
+        const scenarios = activeEvaluation.questions;
+
+        set({
+          evaluations: getEvaluationFiles(),
+          activeEvaluation,
+          scenarios,
+          scenarioCategories: getScenarioCategories(scenarios),
+          currentScenario: scenarios[0],
+          currentStreet: scenarios[0].street,
+          hasPurchasedChallenge: true,
+          currentChallenge,
+          activeChallenges: assignedChallenges,
+          selectedAction: null,
+          feedbackVisible: false,
+          isLoadingData: false,
+        });
+        return;
+      }
+
+      const activeEvaluation = getActiveEvaluation();
+      const scenarios = activeEvaluation.questions;
+
+      set({
+        evaluations: getEvaluationFiles(),
+        activeEvaluation,
+        scenarios,
+        scenarioCategories: getScenarioCategories(scenarios),
+        currentScenario: scenarios[0],
+        currentStreet: scenarios[0].street,
+        hasPurchasedChallenge: false,
+        currentChallenge: null,
+        activeChallenges: [],
+        selectedAction: null,
+        feedbackVisible: false,
+        isLoadingData: false,
+      });
+      return;
+    } catch (error) {
+      console.error("Could not load assigned database challenges.", error);
+    }
+
     const activeEvaluation = getActiveEvaluation();
     const scenarios = activeEvaluation.questions;
 
@@ -91,7 +145,7 @@ export const useEvaluationStore = create(
       activeChallenges[0];
     if (!currentChallenge) return;
 
-    const activeEvaluation = get().activeEvaluation;
+    const activeEvaluation = currentChallenge.evaluation ?? get().activeEvaluation;
     const scenarios = activeEvaluation.questions;
     const selectedCategory = category ?? get().selectedCategory;
     const pool = getScenarioPool(selectedCategory, scenarios);
@@ -105,6 +159,14 @@ export const useEvaluationStore = create(
       earnedPoints: 0,
       funded: false,
     };
+
+    if (nextChallenge.dbBacked && nextChallenge.assignmentId) {
+      try {
+        await markAssignedChallengeStarted(nextChallenge.assignmentId);
+      } catch (error) {
+        console.error("Could not mark assigned challenge as started.", error);
+      }
+    }
 
     set({
       activeEvaluation,
@@ -223,6 +285,14 @@ export const useEvaluationStore = create(
             scenarioResults: stats.completedScenarios,
           }
         : null;
+
+      if (completedChallenge?.dbBacked && completedChallenge.assignmentId) {
+        try {
+          await completeAssignedChallenge(completedChallenge.assignmentId, completedChallenge);
+        } catch (error) {
+          console.error("Could not save assigned challenge result.", error);
+        }
+      }
 
       const remainingActiveChallenges = currentChallenge
         ? activeChallenges.filter((challenge) => challenge.id !== currentChallenge.id)
