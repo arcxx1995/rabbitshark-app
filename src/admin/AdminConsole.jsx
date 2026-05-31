@@ -117,9 +117,20 @@ export default function AdminConsole() {
   };
 
   return (
-    <main className="grid-shell min-h-dvh bg-aurora bg-fixed px-4 py-5 text-green sm:px-8">
-      <div className="mx-auto grid max-w-7xl gap-5 xl:grid-cols-[360px_1fr]">
-        <aside className="glass-panel rounded-[1.75rem] p-5">
+    <main className="h-dvh overflow-y-auto bg-aurora text-green">
+      <section className="grid-shell min-h-dvh overflow-hidden">
+        <div className="mx-auto flex min-h-dvh w-full max-w-7xl flex-col px-5 pb-12 pt-5 sm:px-8 sm:pb-14 sm:pt-7 lg:px-12">
+          <header className="flex items-center justify-between gap-4">
+            <a href="#" className="font-display text-2xl tracking-[0.18em]">
+              RABBITSHARK
+            </a>
+            <div className="hidden rounded-full border border-green/25 bg-green px-5 py-3 text-sm font-semibold text-black shadow-tide sm:block">
+              Developer Console
+            </div>
+          </header>
+
+          <div className="mt-10 grid gap-5 xl:grid-cols-[360px_1fr]">
+            <aside className="glass-panel rounded-[1.75rem] p-5">
           <div className="mb-5 flex items-center gap-3">
             <div className="grid h-11 w-11 place-items-center rounded-2xl border border-green/20 bg-green/10 text-green">
               <ShieldCheck size={22} />
@@ -278,8 +289,10 @@ export default function AdminConsole() {
               </div>
             ))}
           </div>
-        </section>
-      </div>
+            </section>
+          </div>
+        </div>
+      </section>
     </main>
   );
 }
