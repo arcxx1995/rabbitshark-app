@@ -1,11 +1,35 @@
-@import url("https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Sora:wght@600;700;800&display=swap");
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
+  @font-face {
+    font-family: "ttGertika";
+    src: url("/TT_Gertika_Trial_Regular.ttf") format("truetype");
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+  }
+
+  @font-face {
+    font-family: "TT Gertika";
+    src: url("/TT_Gertika_Trial_Regular.ttf") format("truetype");
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+  }
+
   :root {
+    --color-black: #020202;
+    --color-green: #00ffab;
+    --color-white: #fcf8f8;
+    --color-ink: var(--color-black);
+    --color-sand: var(--color-white);
+    --color-shell: var(--color-white);
+    --color-tide: var(--color-green);
+    --color-foam: var(--color-white);
+    --color-coral: var(--color-green);
+    --font-gertika: "ttGertika", "TT Gertika";
     color-scheme: dark;
     font-synthesis: none;
     text-rendering: geometricPrecision;
@@ -24,8 +48,9 @@
     min-height: 100dvh;
     margin: 0;
     overflow: hidden;
-    background: #050706;
-    color: #f7f2df;
+    background: var(--color-black);
+    color: var(--color-green);
+    font-family: var(--font-gertika), "TT Gertika", Arial, sans-serif;
   }
 
   button,
@@ -36,15 +61,91 @@
 }
 
 @layer components {
+  .grid-shell {
+    background-image:
+      linear-gradient(color-mix(in srgb, var(--color-white) 7%, transparent) 1px, transparent 1px),
+      linear-gradient(90deg, color-mix(in srgb, var(--color-white) 7%, transparent) 1px, transparent 1px);
+    background-size: 36px 36px;
+  }
+
+  .spotlight {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .spotlight::before {
+    content: "";
+    position: absolute;
+    inset: -30%;
+    pointer-events: none;
+    background: radial-gradient(circle at 50% 0%, color-mix(in srgb, var(--color-green) 22%, transparent), transparent 58%);
+    filter: blur(30px);
+  }
+
+  .spotlight > * {
+    position: relative;
+    z-index: 1;
+  }
+
   .glass-panel {
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    background: linear-gradient(
-      145deg,
-      rgba(255, 255, 255, 0.1),
-      rgba(255, 255, 255, 0.035)
-    );
-    box-shadow: 0 24px 70px rgba(0, 0, 0, 0.35);
-    backdrop-filter: blur(18px);
+    border: 1px solid color-mix(in srgb, var(--color-white) 10%, transparent);
+    background: color-mix(in srgb, var(--color-white) 6%, transparent);
+    box-shadow: 0 24px 90px rgba(0, 0, 0, 0.58);
+    backdrop-filter: blur(14px);
+    color: var(--color-green);
+  }
+
+  .section-card {
+    border: 1px solid color-mix(in srgb, var(--color-white) 12%, transparent);
+    background: color-mix(in srgb, var(--color-white) 6%, transparent);
+    backdrop-filter: blur(12px);
+    color: var(--color-green);
+  }
+
+  .editorial-stage {
+    position: relative;
+    overflow: hidden;
+    border: 1px solid color-mix(in srgb, var(--color-green) 45%, transparent);
+    background:
+      radial-gradient(circle at 20% 18%, color-mix(in srgb, var(--color-green) 36%, transparent), transparent 24%),
+      radial-gradient(circle at 82% 20%, color-mix(in srgb, var(--color-white) 30%, transparent), transparent 28%),
+      linear-gradient(180deg, var(--color-black), var(--color-black));
+  }
+
+  .editorial-stage::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background:
+      linear-gradient(115deg, color-mix(in srgb, var(--color-white) 18%, transparent), transparent 28%),
+      linear-gradient(180deg, transparent, color-mix(in srgb, var(--color-black) 46%, transparent));
+  }
+
+  .editorial-stage > * {
+    position: relative;
+    z-index: 1;
+  }
+
+  .password-input {
+    background-color: var(--color-white);
+    color: var(--color-black);
+    -webkit-text-fill-color: var(--color-black);
+    caret-color: var(--color-green);
+  }
+
+  .password-input::placeholder {
+    color: var(--color-black);
+    -webkit-text-fill-color: var(--color-black);
+    opacity: 0.42;
+  }
+
+  .password-input:-webkit-autofill,
+  .password-input:-webkit-autofill:focus,
+  .password-input:-webkit-autofill:hover {
+    box-shadow: 0 0 0 1000px var(--color-white) inset;
+    -webkit-text-fill-color: var(--color-black);
+    caret-color: var(--color-green);
   }
 
   .card-suit-red {
@@ -55,10 +156,10 @@
     color: #10151c;
   }
 
-  .table-felt-texture {
+  .table-surface-texture {
     background-image:
-      radial-gradient(circle at 50% 48%, rgba(45, 212, 191, 0.24), transparent 34%),
-      repeating-linear-gradient(90deg, rgba(255,255,255,.035) 0 1px, transparent 1px 5px),
-      radial-gradient(circle at 50% 50%, #0b5960, #061923 72%);
+      radial-gradient(circle at 50% 48%, rgba(0, 255, 171, 0.2), transparent 34%),
+      repeating-linear-gradient(90deg, rgba(252,248,248,.035) 0 1px, transparent 1px 5px),
+      radial-gradient(circle at 50% 50%, #003424, #020202 74%);
   }
 }

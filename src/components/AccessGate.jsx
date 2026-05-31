@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { AlertCircle, LockKeyhole, Mail } from "lucide-react";
+import { AlertCircle, Mail } from "lucide-react";
 import { isSupabaseConfigured, supabase } from "../lib/supabaseClient";
 import {
   clearStoredAuthSession,
@@ -180,110 +180,156 @@ export default function AccessGate({
   if (status === "accepted") return children;
 
   return (
-    <main className="grid min-h-dvh place-items-center bg-room-950 px-4 text-white">
-      <section className="w-full max-w-md rounded-xl border border-white/10 bg-white/[0.04] p-6">
-        <div className="mx-auto grid h-12 w-12 place-items-center rounded-xl bg-gold-500/12 text-gold-400">
-          <LockKeyhole size={24} />
-        </div>
-        <div className="mt-5 text-center">
-          <div className="text-xs font-bold uppercase tracking-[0.16em] text-gold-400">
-            {contextLabel}
-          </div>
-          <h1 className="mt-2 font-display text-2xl font-black">
-            Sign in to {productName}
-          </h1>
-          <p className="mt-2 text-sm leading-6 text-white/58">
-            Use your account credentials. This browser will keep the session
-            until you log out.
-          </p>
-        </div>
-
-        {status === "missing-config" ? (
-          <div className="mt-5 rounded-lg border border-red-300/30 bg-red-500/10 p-4 text-sm leading-6 text-red-100">
-            Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY so this app can
-            verify Supabase sessions and accept logins.
-          </div>
-        ) : null}
-
-        {errorMessage ? (
-          <div className="mt-5 flex gap-2 rounded-lg border border-red-300/30 bg-red-500/10 p-3 text-sm leading-6 text-red-100">
-            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-            <span>{errorMessage}</span>
-          </div>
-        ) : null}
-
-        {successMessage ? (
-          <div className="mt-5 rounded-lg border border-felt-500/30 bg-felt-500/10 p-3 text-sm leading-6 text-felt-500">
-            {successMessage}
-          </div>
-        ) : null}
-
-        <form
-          className="mt-6 space-y-4"
-          onSubmit={handleAuthSubmit}
-        >
-          <label className="block">
-            <span className="text-xs font-bold uppercase tracking-[0.14em] text-white/42">
-              Email
-            </span>
-            <div className="mt-2 flex h-12 items-center gap-3 rounded-lg border border-white/10 bg-black/22 px-3 focus-within:border-gold-400/60">
-              <Mail className="h-4 w-4 text-white/35" />
-              <input
-                className="min-w-0 flex-1 bg-transparent text-sm text-white outline-none placeholder:text-white/30"
-                type="email"
-                autoComplete="email"
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
-                placeholder="you@example.com"
-              />
+    <main className="h-dvh overflow-y-scroll bg-aurora text-green">
+      <section className="grid-shell min-h-screen overflow-hidden">
+        <div className="mx-auto flex min-h-screen w-full max-w-7xl flex-col px-5 pb-12 pt-5 sm:px-8 sm:pb-14 sm:pt-7 lg:px-12">
+          <header className="flex items-center justify-between gap-4">
+            <a href="#" className="font-display text-2xl tracking-[0.18em]">
+              RABBITSHARK
+            </a>
+            <div className="hidden rounded-full border border-green/25 bg-green px-5 py-3 text-sm font-semibold text-black shadow-tide sm:block">
+              {contextLabel}
             </div>
-          </label>
+          </header>
 
-          <label className="block">
-            <span className="text-xs font-bold uppercase tracking-[0.14em] text-white/42">
-              Password
-            </span>
-            <div className="mt-2 h-12 rounded-lg border border-white/10 bg-black/22 px-3 focus-within:border-gold-400/60">
-              <input
-                className="h-full w-full bg-transparent text-sm text-white outline-none placeholder:text-white/30"
-                type="password"
-                autoComplete="current-password"
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                placeholder="Password"
-              />
+          <div className="grid flex-1 gap-10 py-12 lg:grid-cols-[1.02fr_0.98fr] lg:items-center lg:gap-12 lg:py-16">
+            <div>
+              <p className="text-xs uppercase tracking-[0.18em] text-white/60 sm:text-sm">
+                Poker Funding Evaluation
+              </p>
+              <h1 className="mt-4 max-w-5xl text-[3.15rem] leading-[0.9] text-green sm:text-7xl lg:text-8xl">
+                Enter the Rabbitshark client area.
+              </h1>
+              <p className="mt-6 max-w-2xl text-base leading-7 text-white/74 sm:text-lg sm:leading-8">
+                Sign in to continue the private operator flow, review your
+                evaluation access, and complete the timed GTO challenge.
+              </p>
+
+              <div className="mt-9 grid gap-3 sm:grid-cols-3">
+                <div className="section-card rounded-2xl p-4">
+                  <p className="text-3xl">20</p>
+                  <p className="mt-2 text-xs uppercase tracking-[0.16em] text-white/58">
+                    Challenge Questions
+                  </p>
+                </div>
+                <div className="section-card rounded-2xl p-4">
+                  <p className="text-3xl">10m</p>
+                  <p className="mt-2 text-xs uppercase tracking-[0.16em] text-white/58">
+                    Evaluation Timer
+                  </p>
+                </div>
+                <div className="section-card rounded-2xl p-4">
+                  <p className="text-3xl">48+</p>
+                  <p className="mt-2 text-xs uppercase tracking-[0.16em] text-white/58">
+                    Pass Threshold
+                  </p>
+                </div>
+              </div>
             </div>
-          </label>
 
-          <Button
-            className="h-11 w-full px-4 text-xs"
-            type="submit"
-            disabled={isSubmitting}
-          >
-            {isSubmitting
-              ? authMode === "sign-up"
-                ? "Creating Account"
-                : "Signing In"
-              : authMode === "sign-up"
-                ? "Create Account"
-                : "Sign In"}
-          </Button>
-        </form>
+            <section className="editorial-stage rounded-[2rem] p-4 shadow-tide sm:p-5">
+              <div className="relative overflow-hidden rounded-[1.5rem] border border-white/10 bg-black/70 p-5 sm:p-6">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="text-[11px] uppercase tracking-[0.18em] text-white/55">
+                      {contextLabel}
+                    </p>
+                    <h2 className="mt-3 max-w-sm text-4xl leading-[0.95] text-green sm:text-5xl">
+                      Sign in to {productName}.
+                    </h2>
+                  </div>
+                  <span className="rounded-full border border-green/25 px-3 py-2 text-[11px] uppercase tracking-[0.18em] text-green">
+                    Private
+                  </span>
+                </div>
 
-        <p className="mt-5 text-center text-sm text-white/55">
-          {authMode === "sign-in" ? "Don't have an account? " : "Already have an account? "}
-          <button
-            type="button"
-            className="font-bold text-gold-400 underline-offset-4 hover:text-gold-300 hover:underline"
-            onClick={() => {
-              setAuthMode(authMode === "sign-in" ? "sign-up" : "sign-in");
-              setErrorMessage("");
-              setSuccessMessage("");
-            }}
-          >
-            {authMode === "sign-in" ? "Create One" : "Sign In"}
-          </button>
-        </p>
+                {status === "missing-config" ? (
+                  <div className="mt-6 rounded-[1.1rem] border border-green/30 bg-green/10 p-4 text-sm leading-6 text-green">
+                    Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY so this app
+                    can verify Supabase sessions and accept logins.
+                  </div>
+                ) : null}
+
+                {errorMessage ? (
+                  <div className="mt-6 flex gap-2 rounded-[1.1rem] border border-green/30 bg-green/10 p-3 text-sm leading-6 text-green">
+                    <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                    <span>{errorMessage}</span>
+                  </div>
+                ) : null}
+
+                {successMessage ? (
+                  <div className="mt-6 rounded-[1.1rem] border border-green/30 bg-green/10 p-3 text-sm leading-6 text-green">
+                    {successMessage}
+                  </div>
+                ) : null}
+
+                <form className="mt-8 space-y-4" onSubmit={handleAuthSubmit}>
+                  <label className="block">
+                    <span className="text-xs font-bold uppercase tracking-[0.14em] text-white/58">
+                      Email
+                    </span>
+                    <div className="mt-2 flex h-12 items-center gap-3 rounded-xl border border-white/10 bg-white/5 px-3 focus-within:border-green">
+                      <Mail className="h-4 w-4 text-white/45" />
+                      <input
+                        className="min-w-0 flex-1 bg-transparent text-sm text-green outline-none placeholder:text-white/45"
+                        type="email"
+                        autoComplete="email"
+                        value={email}
+                        onChange={(event) => setEmail(event.target.value)}
+                        placeholder="you@example.com"
+                      />
+                    </div>
+                  </label>
+
+                  <label className="block">
+                    <span className="text-xs font-bold uppercase tracking-[0.14em] text-white/58">
+                      Password
+                    </span>
+                    <div className="mt-2 h-12 rounded-xl border border-white/10 bg-white px-3 focus-within:border-green">
+                      <input
+                        className="password-input h-full w-full bg-transparent text-sm outline-none"
+                        type="password"
+                        autoComplete="current-password"
+                        value={password}
+                        onChange={(event) => setPassword(event.target.value)}
+                        placeholder="Password"
+                      />
+                    </div>
+                  </label>
+
+                  <Button
+                    className="h-14 w-full px-6 text-sm"
+                    type="submit"
+                    disabled={isSubmitting}
+                  >
+                    {isSubmitting
+                      ? authMode === "sign-up"
+                        ? "Creating Account"
+                        : "Signing In"
+                      : authMode === "sign-up"
+                        ? "Create Account"
+                        : "Sign In"}
+                  </Button>
+                </form>
+
+                <p className="mt-5 text-center text-sm text-white/60">
+                  {authMode === "sign-in" ? "Don't have an account? " : "Already have an account? "}
+                  <button
+                    type="button"
+                    className="font-bold text-green underline-offset-4 transition hover:text-white hover:underline"
+                    onClick={() => {
+                      setAuthMode(authMode === "sign-in" ? "sign-up" : "sign-in");
+                      setErrorMessage("");
+                      setSuccessMessage("");
+                    }}
+                  >
+                    {authMode === "sign-in" ? "Create One" : "Sign In"}
+                  </button>
+                </p>
+              </div>
+            </section>
+          </div>
+        </div>
       </section>
     </main>
   );
