@@ -193,6 +193,55 @@ export async function assignChallengeToUser({ challengeId, userId }) {
   throw lastCollisionError;
 }
 
+export async function searchAssignmentsByEmail(query) {
+  const client = requireSupabase();
+  const normalizedQuery = query.trim();
+
+  if (normalizedQuery.length < 2) return [];
+
+  const { data: profiles, error: profileError } = await client
+    .from("profiles")
+    .select("id,email,display_name")
+    .ilike("email", `%${normalizedQuery}%`)
+    .order("email", { ascending: true })
+    .limit(8);
+
+  if (profileError) throw profileError;
+  if (!profiles?.length) return [];
+
+  const profileById = new Map(profiles.map((profile) => [profile.id, profile]));
+  const { data, error } = await client
+    .from("user_challenges")
+    .select(
+      `
+        *,
+        challenges (
+          id,
+          name,
+          created_at,
+          evaluation_files (
+            id,
+            slug,
+            title,
+            version,
+            question_count,
+            funded_threshold_percent,
+            total_possible_points
+          )
+        )
+      `,
+    )
+    .in("user_id", profiles.map((profile) => profile.id))
+    .order("assigned_at", { ascending: false });
+
+  if (error) throw error;
+
+  return (data ?? []).map((assignment) => ({
+    ...assignment,
+    profile: profileById.get(assignment.user_id),
+  }));
+}
+
 export async function getAssignedChallengesForCurrentUser() {
   const client = requireSupabase();
   const { data, error } = await client

@@ -16,6 +16,7 @@ import {
   listDatabaseChallenges,
   listDatabaseEvaluationFiles,
   saveEvaluationFileToDatabase,
+  searchAssignmentsByEmail,
   searchProfiles,
 } from "../lib/challengeDatabase";
 import { signOutOfApp } from "../lib/authSession";
@@ -41,6 +42,11 @@ export default function AdminConsole() {
   const [userQuery, setUserQuery] = useState("");
   const [userResults, setUserResults] = useState([]);
   const [selectedUser, setSelectedUser] = useState(null);
+  const [activeSection, setActiveSection] = useState("challenges");
+  const [assignmentLookupEmail, setAssignmentLookupEmail] = useState("");
+  const [assignmentResults, setAssignmentResults] = useState([]);
+  const [assignmentLookupLoading, setAssignmentLookupLoading] = useState(false);
+  const [assignmentLookupSearched, setAssignmentLookupSearched] = useState(false);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState(null);
 
@@ -219,6 +225,35 @@ export default function AdminConsole() {
     }
   };
 
+  const handleAssignmentLookup = async () => {
+    if (assignmentLookupEmail.trim().length < 2) {
+      setMessage({
+        type: "error",
+        text: "Enter at least two characters of an email ID.",
+      });
+      return;
+    }
+
+    setAssignmentLookupLoading(true);
+    setAssignmentLookupSearched(true);
+
+    try {
+      const results = await searchAssignmentsByEmail(assignmentLookupEmail);
+
+      setAssignmentResults(results);
+      setAssignmentLookupLoading(false);
+    } catch (error) {
+      setAssignmentLookupLoading(false);
+      setMessage({
+        type: "error",
+        text:
+          error instanceof Error
+            ? error.message
+            : "Could not search assignment details.",
+      });
+    }
+  };
+
   return (
     <main className="h-dvh overflow-y-auto bg-aurora text-green">
       <section className="grid-shell min-h-dvh overflow-hidden">
@@ -263,6 +298,33 @@ export default function AdminConsole() {
                   onChange={handleUpload}
                 />
               </label>
+
+              <div className="mb-4 grid gap-2">
+                <button
+                  type="button"
+                  onClick={() => setActiveSection("challenges")}
+                  className={[
+                    "h-11 rounded-xl border px-4 text-left text-sm font-bold transition",
+                    activeSection === "challenges"
+                      ? "border-green bg-green text-black"
+                      : "border-white/10 bg-black/20 text-green hover:border-green/35 hover:bg-green/10",
+                  ].join(" ")}
+                >
+                  Challenge Control
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveSection("lookup")}
+                  className={[
+                    "h-11 rounded-xl border px-4 text-left text-sm font-bold transition",
+                    activeSection === "lookup"
+                      ? "border-green bg-green text-black"
+                      : "border-white/10 bg-black/20 text-green hover:border-green/35 hover:bg-green/10",
+                  ].join(" ")}
+                >
+                  Assignment Lookup
+                </button>
+              </div>
 
               {message ? (
                 <div
@@ -325,6 +387,156 @@ export default function AdminConsole() {
             </aside>
 
             <section className="glass-panel rounded-[1.75rem] p-5 sm:p-7">
+              {activeSection === "lookup" ? (
+                <div>
+                  <div className="mb-3 flex flex-wrap gap-2">
+                    <Badge>Assignment Lookup</Badge>
+                    <Badge>Email search</Badge>
+                  </div>
+                  <h2 className="font-display text-3xl font-black sm:text-4xl">
+                    Find assignment numbers and challenge details.
+                  </h2>
+                  <p className="mt-3 max-w-3xl text-sm leading-6 text-white/62">
+                    Search by user email ID to see assigned challenge numbers,
+                    status, evaluation file, and score details.
+                  </p>
+
+                  <div className="mt-6 rounded-[1.5rem] border border-white/10 bg-black/60 p-5">
+                    <label className="block">
+                      <span className="text-xs font-bold uppercase tracking-[0.14em] text-white/58">
+                        Email ID
+                      </span>
+                      <div className="mt-2 flex min-h-12 flex-col gap-3 rounded-xl border border-white/10 bg-white/5 px-3 py-3 focus-within:border-green sm:flex-row sm:items-center sm:py-0">
+                        <Search className="h-4 w-4 shrink-0 text-white/45" />
+                        <input
+                          className="min-w-0 flex-1 bg-transparent text-sm text-green outline-none placeholder:text-white/35"
+                          value={assignmentLookupEmail}
+                          onChange={(event) =>
+                            setAssignmentLookupEmail(event.target.value)
+                          }
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter") {
+                              handleAssignmentLookup();
+                            }
+                          }}
+                          placeholder="client@example.com"
+                        />
+                        <Button
+                          className="h-9 px-4 text-xs sm:w-auto"
+                          onClick={handleAssignmentLookup}
+                        >
+                          Search
+                        </Button>
+                      </div>
+                    </label>
+                  </div>
+
+                  <div className="mt-6">
+                    <div className="mb-3 flex items-center justify-between gap-3">
+                      <h3 className="font-display text-xl font-bold">
+                        Assignment Results
+                      </h3>
+                      <Badge>
+                        {assignmentLookupLoading
+                          ? "Searching"
+                          : `${assignmentResults.length} found`}
+                      </Badge>
+                    </div>
+
+                    {assignmentLookupSearched &&
+                    !assignmentLookupLoading &&
+                    assignmentResults.length === 0 ? (
+                      <div className="rounded-2xl border border-dashed border-white/12 bg-black/20 p-5 text-sm leading-6 text-white/55">
+                        No assignments found for that email ID.
+                      </div>
+                    ) : null}
+
+                    <div className="grid gap-3 md:grid-cols-2">
+                      {assignmentResults.map((assignment) => {
+                        const challenge = assignment.challenges;
+                        const evaluationFile = challenge?.evaluation_files;
+                        const profile = assignment.profile;
+
+                        return (
+                          <div
+                            key={assignment.id}
+                            className="rounded-2xl border border-white/10 bg-black/40 p-4"
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div>
+                                <div className="font-display text-2xl font-black tracking-[0.12em] text-green">
+                                  {assignment.assignment_code}
+                                </div>
+                                <div className="mt-1 text-xs text-white/45">
+                                  {profile?.email ?? assignment.user_id}
+                                </div>
+                              </div>
+                              <Badge className="border-green/45 text-green">
+                                {assignment.status}
+                              </Badge>
+                            </div>
+
+                            <div className="mt-4 border-t border-white/10 pt-4">
+                              <div className="font-display text-lg font-bold">
+                                {challenge?.name ?? "Challenge"}
+                              </div>
+                              <div className="mt-1 text-sm text-white/55">
+                                {evaluationFile?.title ?? "Evaluation file"}
+                              </div>
+                              <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                                <div className="rounded-lg border border-white/10 bg-black/50 p-3">
+                                  <div className="text-[11px] font-bold uppercase tracking-[0.12em] text-white/35">
+                                    Assigned
+                                  </div>
+                                  <div className="mt-1 text-sm font-bold text-green">
+                                    {formatDate(assignment.assigned_at)}
+                                  </div>
+                                </div>
+                                <div className="rounded-lg border border-white/10 bg-black/50 p-3">
+                                  <div className="text-[11px] font-bold uppercase tracking-[0.12em] text-white/35">
+                                    Started
+                                  </div>
+                                  <div className="mt-1 text-sm font-bold text-green">
+                                    {formatDate(assignment.started_at)}
+                                  </div>
+                                </div>
+                                <div className="rounded-lg border border-white/10 bg-black/50 p-3">
+                                  <div className="text-[11px] font-bold uppercase tracking-[0.12em] text-white/35">
+                                    Score
+                                  </div>
+                                  <div className="mt-1 text-sm font-bold text-green">
+                                    {assignment.score ?? "Not scored"}
+                                  </div>
+                                </div>
+                                <div className="rounded-lg border border-white/10 bg-black/50 p-3">
+                                  <div className="text-[11px] font-bold uppercase tracking-[0.12em] text-white/35">
+                                    Questions
+                                  </div>
+                                  <div className="mt-1 text-sm font-bold text-green">
+                                    {evaluationFile?.question_count ?? "Not set"}
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="mt-3 flex flex-wrap gap-2">
+                                <Badge>
+                                  {evaluationFile?.slug ?? "No evaluation slug"}
+                                </Badge>
+                                <Badge>
+                                  Target {evaluationFile?.funded_threshold_percent ?? 80}%
+                                </Badge>
+                                <Badge>
+                                  {assignment.funded ? "Funded" : "Not funded"}
+                                </Badge>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <>
               <div className="grid gap-5 lg:grid-cols-[1fr_0.95fr]">
                 <div>
                   <div className="mb-3 flex flex-wrap gap-2">
@@ -492,6 +704,8 @@ export default function AdminConsole() {
                   ))}
                 </div>
               </div>
+                </>
+              )}
 
               <div className="mt-6 flex flex-wrap gap-3 border-t border-white/10 pt-5">
                 <Button variant="danger" onClick={logout}>
