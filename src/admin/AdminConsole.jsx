@@ -85,7 +85,7 @@ export default function AdminConsole() {
     } catch (error) {
       console.error("Could not sign out.", error);
     } finally {
-      window.location.assign("/admin.html");
+      window.location.assign("/");
     }
   };
 
@@ -117,11 +117,11 @@ export default function AdminConsole() {
   };
 
   return (
-    <main className="min-h-dvh bg-room bg-fixed px-4 py-5 text-white sm:px-8">
+    <main className="grid-shell min-h-dvh bg-aurora bg-fixed px-4 py-5 text-green sm:px-8">
       <div className="mx-auto grid max-w-7xl gap-5 xl:grid-cols-[360px_1fr]">
         <aside className="glass-panel rounded-[1.75rem] p-5">
           <div className="mb-5 flex items-center gap-3">
-            <div className="grid h-11 w-11 place-items-center rounded-2xl bg-gold-500/15 text-gold-400">
+            <div className="grid h-11 w-11 place-items-center rounded-2xl border border-green/20 bg-green/10 text-green">
               <ShieldCheck size={22} />
             </div>
             <div>
@@ -134,9 +134,9 @@ export default function AdminConsole() {
             </div>
           </div>
 
-          <label className="mb-4 flex min-h-24 cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-gold-400/35 bg-gold-500/10 px-4 py-5 text-center transition hover:bg-gold-500/15">
-            <Upload className="mb-2 h-6 w-6 text-gold-400" />
-            <span className="text-sm font-bold uppercase tracking-[0.14em] text-gold-400">
+          <label className="mb-4 flex min-h-24 cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-green/35 bg-green/10 px-4 py-5 text-center transition hover:bg-green/15">
+            <Upload className="mb-2 h-6 w-6 text-green" />
+            <span className="text-sm font-bold uppercase tracking-[0.14em] text-green">
               Upload JSON File
             </span>
             <span className="mt-1 text-xs leading-5 text-white/48">
@@ -155,7 +155,7 @@ export default function AdminConsole() {
               className={[
                 "mb-4 flex gap-2 rounded-2xl border px-3 py-2 text-sm leading-5",
                 uploadMessage.type === "success"
-                  ? "border-felt-500/30 bg-felt-500/10 text-felt-500"
+                  ? "border-green/30 bg-green/10 text-green"
                   : "border-red-300/30 bg-red-500/10 text-red-200",
               ].join(" ")}
             >
@@ -181,7 +181,7 @@ export default function AdminConsole() {
                   className={[
                     "w-full rounded-2xl border p-4 text-left transition",
                     selected
-                      ? "border-gold-400 bg-gold-500/12"
+                      ? "border-green bg-green/10"
                       : "border-white/10 bg-black/20 hover:border-white/20 hover:bg-white/[0.06]",
                   ].join(" ")}
                 >
@@ -193,13 +193,13 @@ export default function AdminConsole() {
                       <div className="mt-1 text-xs text-white/52">{file.id}</div>
                     </div>
                     {active ? (
-                      <CheckCircle2 className="h-5 w-5 shrink-0 text-felt-500" />
+                      <CheckCircle2 className="h-5 w-5 shrink-0 text-green" />
                     ) : null}
                   </div>
                   <div className="mt-3 flex flex-wrap gap-2">
                     <Badge>{file.questionCount} questions</Badge>
                     <Badge>{file.source}</Badge>
-                    <Badge className={file.isValid ? "text-felt-500" : "text-red-300"}>
+                    <Badge className={file.isValid ? "text-green" : "text-red-300"}>
                       {file.isValid ? "Valid" : "Invalid"}
                     </Badge>
                   </div>
@@ -219,7 +219,7 @@ export default function AdminConsole() {
                   {evaluationFiles.find((file) => file.id === selectedEvaluation.id)?.source}
                 </Badge>
                 {selectedEvaluation.id === activeEvaluationId ? (
-                  <Badge className="border-felt-500/45 text-felt-500">
+                  <Badge className="border-green/45 text-green">
                     Active file
                   </Badge>
                 ) : null}
@@ -259,7 +259,7 @@ export default function AdminConsole() {
               >
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <div className="text-xs font-bold uppercase tracking-[0.16em] text-gold-400">
+                    <div className="text-xs font-bold uppercase tracking-[0.16em] text-green">
                       Question {question.questionNumber}
                     </div>
                     <div className="mt-1 font-display text-lg font-bold">
@@ -273,7 +273,7 @@ export default function AdminConsole() {
                 </p>
                 <div className="mt-3 flex items-center justify-between gap-3 text-xs text-white/38">
                   <span>Source template: {question.sourceScenarioId ?? "Uploaded"}</span>
-                  <span className="font-bold text-gold-400">{question.points} pts</span>
+                  <span className="font-bold text-green">{question.points} pts</span>
                 </div>
               </div>
             ))}
