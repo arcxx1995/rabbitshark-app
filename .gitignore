@@ -1,10 +1,12 @@
 node_modules/
 dist/
+dist-admin/
 .env
 .env.*
 !.env.example
 .DS_Store
 npm-debug.log*
+.vite-dev*.log
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
