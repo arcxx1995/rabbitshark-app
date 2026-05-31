@@ -196,14 +196,14 @@ export default function AdminConsole() {
     }
 
     try {
-      await assignChallengeToUser({
+      const assignment = await assignChallengeToUser({
         challengeId: selectedChallenge.id,
         userId: selectedUser.id,
       });
 
       setMessage({
         type: "success",
-        text: `Assigned ${selectedChallenge.name} to ${selectedUser.email}.`,
+        text: `Assigned ${selectedChallenge.name} to ${selectedUser.email}. Code: ${assignment.assignment_code}.`,
       });
       setUserQuery("");
       setUserResults([]);

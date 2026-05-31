@@ -100,6 +100,7 @@ create table if not exists public.challenges (
 
 create table if not exists public.user_challenges (
   id uuid primary key default gen_random_uuid(),
+  assignment_code text not null default lpad((floor(random() * 900000000) + 100000000)::bigint::text, 9, '0'),
   user_id uuid not null references auth.users(id) on delete cascade,
   challenge_id uuid not null references public.challenges(id) on delete cascade,
   status text not null default 'assigned'
@@ -113,8 +114,51 @@ create table if not exists public.user_challenges (
   total_possible_points numeric,
   funded boolean not null default false,
   scenario_results jsonb not null default '[]'::jsonb,
+  unique (assignment_code),
   unique (user_id, challenge_id)
 );
+```
+
+If the tables already exist, run this migration once:
+
+```sql
+alter table public.user_challenges
+add column if not exists assignment_code text;
+
+do $$
+declare
+  assignment record;
+  generated_code text;
+begin
+  for assignment in
+    select id
+    from public.user_challenges
+    where assignment_code is null
+  loop
+    loop
+      generated_code := lpad((floor(random() * 900000000) + 100000000)::bigint::text, 9, '0');
+
+      exit when not exists (
+        select 1
+        from public.user_challenges
+        where assignment_code = generated_code
+      );
+    end loop;
+
+    update public.user_challenges
+    set assignment_code = generated_code
+    where id = assignment.id;
+  end loop;
+end $$;
+
+alter table public.user_challenges
+alter column assignment_code set default lpad((floor(random() * 900000000) + 100000000)::bigint::text, 9, '0');
+
+alter table public.user_challenges
+alter column assignment_code set not null;
+
+create unique index if not exists user_challenges_assignment_code_key
+on public.user_challenges (assignment_code);
 ```
 
 ## RLS Policies

@@ -330,6 +330,11 @@ export default function ScenarioDashboard() {
                                     <Clock3 className="h-3.5 w-3.5" />
                                     Purchased {formatDate(challenge.purchasedAt)}
                                   </div>
+                                  {challenge.assignmentCode ? (
+                                    <div className="mt-2 inline-flex rounded-md border border-green/35 bg-green/10 px-2 py-1 font-display text-xs font-black tracking-[0.12em] text-green">
+                                      Code {challenge.assignmentCode}
+                                    </div>
+                                  ) : null}
                                 </div>
                                 <Badge className="border-green/45 text-green">
                                   {challengeStatus}
@@ -407,6 +412,11 @@ export default function ScenarioDashboard() {
                                 <div className="mt-1 text-xs text-white/45">
                                   Completed {formatDate(challenge.completedAt)}
                                 </div>
+                                {challenge.assignmentCode ? (
+                                  <div className="mt-2 inline-flex rounded-md border border-green/35 bg-green/10 px-2 py-1 font-display text-xs font-black tracking-[0.12em] text-green">
+                                    Code {challenge.assignmentCode}
+                                  </div>
+                                ) : null}
                               </div>
                               <div className="flex items-center gap-3">
                                 <div className="text-right">

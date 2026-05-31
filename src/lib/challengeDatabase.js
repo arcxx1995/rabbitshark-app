@@ -33,6 +33,7 @@ function mapAssignedChallenge(row) {
   return {
     id: row.id,
     assignmentId: row.id,
+    assignmentCode: row.assignment_code,
     challengeId: row.challenge_id,
     title: challenge.name,
     evaluationId: evaluation.id,
@@ -48,6 +49,16 @@ function mapAssignedChallenge(row) {
     dbBacked: true,
     evaluation,
   };
+}
+
+function createAssignmentCode() {
+  if (typeof crypto !== "undefined" && crypto.getRandomValues) {
+    const values = new Uint32Array(1);
+    crypto.getRandomValues(values);
+    return String(100000000 + (values[0] % 900000000));
+  }
+
+  return String(Math.floor(100000000 + Math.random() * 900000000));
 }
 
 export async function listDatabaseEvaluationFiles() {
@@ -151,23 +162,35 @@ export async function assignChallengeToUser({ challengeId, userId }) {
 
   if (userError) throw userError;
 
-  const { data, error } = await client
-    .from("user_challenges")
-    .upsert(
-      {
-        user_id: userId,
-        challenge_id: challengeId,
-        status: "assigned",
-        assigned_by: userData.user?.id,
-      },
-      { onConflict: "user_id,challenge_id" },
-    )
-    .select("*")
-    .single();
+  let lastCollisionError = null;
 
-  if (error) throw error;
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    const { data, error } = await client
+      .from("user_challenges")
+      .upsert(
+        {
+          user_id: userId,
+          challenge_id: challengeId,
+          assignment_code: createAssignmentCode(),
+          status: "assigned",
+          assigned_by: userData.user?.id,
+        },
+        { onConflict: "user_id,challenge_id" },
+      )
+      .select("*")
+      .single();
 
-  return data;
+    if (!error) return data;
+
+    const collidedOnAssignmentCode =
+      error.code === "23505" && String(error.message).includes("assignment_code");
+
+    if (!collidedOnAssignmentCode) throw error;
+
+    lastCollisionError = error;
+  }
+
+  throw lastCollisionError;
 }
 
 export async function getAssignedChallengesForCurrentUser() {
