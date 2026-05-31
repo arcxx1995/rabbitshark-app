@@ -34,6 +34,13 @@ dist-admin
 
 Deploy this as a separate Vercel project or separate protected domain.
 
+The admin build emits `dist-admin/index.html`, so the deployed developer console
+opens at the project root:
+
+```text
+https://your-admin-project.vercel.app/
+```
+
 ## Supabase Developer Allowlist
 
 Create a developer-only allowlist table in Supabase:

@@ -74,7 +74,7 @@ export default function DeveloperAccessGate({ children }) {
     } catch (error) {
       console.error("Could not sign out.", error);
     } finally {
-      window.location.assign("/admin.html");
+      window.location.assign("/");
     }
   }
 

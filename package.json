@@ -9,7 +9,7 @@
     "start": "vite",
     "build": "vite build",
     "build:client": "vite build",
-    "build:admin": "vite build --config vite.admin.config.js",
+    "build:admin": "vite build --config vite.admin.config.js && node scripts/prepare-admin-build.mjs",
     "preview": "vite preview",
     "lint": "eslint ."
   },
