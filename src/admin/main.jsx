@@ -7,7 +7,17 @@ import "../index.css";
 
 createRoot(document.getElementById("admin-root")).render(
   <StrictMode>
-    <AccessGate contextLabel="Admin Console">
+    <AccessGate
+      contextLabel="Admin Console"
+      eyebrow="Developer Console"
+      headline="Enter the Rabbitshark admin console."
+      description="Sign in with an authorized developer account to manage evaluation files and control the active challenge."
+      stats={[
+        { value: "JSON", label: "Evaluation Uploads" },
+        { value: "RLS", label: "Developer Allowlist" },
+        { value: "Live", label: "Active File Control" },
+      ]}
+    >
       <DeveloperAccessGate>
         <AdminConsole />
       </DeveloperAccessGate>

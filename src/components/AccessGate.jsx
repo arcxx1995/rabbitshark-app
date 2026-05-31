@@ -31,6 +31,14 @@ export default function AccessGate({
   children,
   productName = "Rabbitshark",
   contextLabel = "Player Console",
+  eyebrow = "Poker Funding Evaluation",
+  headline = "Enter the Rabbitshark client area.",
+  description = "Sign in to continue the private operator flow, review your evaluation access, and complete the timed GTO challenge.",
+  stats = [
+    { value: "20", label: "Challenge Questions" },
+    { value: "10m", label: "Evaluation Timer" },
+    { value: "48+", label: "Pass Threshold" },
+  ],
 }) {
   const [status, setStatus] = useState("checking");
   const [email, setEmail] = useState("");
@@ -195,35 +203,24 @@ export default function AccessGate({
           <div className="grid flex-1 gap-10 py-12 lg:grid-cols-[1.02fr_0.98fr] lg:items-center lg:gap-12 lg:py-16">
             <div>
               <p className="text-xs uppercase tracking-[0.18em] text-white/60 sm:text-sm">
-                Poker Funding Evaluation
+                {eyebrow}
               </p>
               <h1 className="mt-4 max-w-5xl text-[3.15rem] leading-[0.9] text-green sm:text-7xl lg:text-8xl">
-                Enter the Rabbitshark client area.
+                {headline}
               </h1>
               <p className="mt-6 max-w-2xl text-base leading-7 text-white/74 sm:text-lg sm:leading-8">
-                Sign in to continue the private operator flow, review your
-                evaluation access, and complete the timed GTO challenge.
+                {description}
               </p>
 
               <div className="mt-9 grid gap-3 sm:grid-cols-3">
-                <div className="section-card rounded-2xl p-4">
-                  <p className="text-3xl">20</p>
-                  <p className="mt-2 text-xs uppercase tracking-[0.16em] text-white/58">
-                    Challenge Questions
-                  </p>
-                </div>
-                <div className="section-card rounded-2xl p-4">
-                  <p className="text-3xl">10m</p>
-                  <p className="mt-2 text-xs uppercase tracking-[0.16em] text-white/58">
-                    Evaluation Timer
-                  </p>
-                </div>
-                <div className="section-card rounded-2xl p-4">
-                  <p className="text-3xl">48+</p>
-                  <p className="mt-2 text-xs uppercase tracking-[0.16em] text-white/58">
-                    Pass Threshold
-                  </p>
-                </div>
+                {stats.map((stat) => (
+                  <div className="section-card rounded-2xl p-4" key={stat.label}>
+                    <p className="text-3xl">{stat.value}</p>
+                    <p className="mt-2 text-xs uppercase tracking-[0.16em] text-white/58">
+                      {stat.label}
+                    </p>
+                  </div>
+                ))}
               </div>
             </div>
 
