@@ -51,16 +51,6 @@ function mapAssignedChallenge(row) {
   };
 }
 
-function createAssignmentCode() {
-  if (typeof crypto !== "undefined" && crypto.getRandomValues) {
-    const values = new Uint32Array(1);
-    crypto.getRandomValues(values);
-    return String(100000000 + (values[0] % 900000000));
-  }
-
-  return String(Math.floor(100000000 + Math.random() * 900000000));
-}
-
 export async function listDatabaseEvaluationFiles() {
   const client = requireSupabase();
   const { data, error } = await client
@@ -167,16 +157,12 @@ export async function assignChallengeToUser({ challengeId, userId }) {
   for (let attempt = 0; attempt < 5; attempt += 1) {
     const { data, error } = await client
       .from("user_challenges")
-      .upsert(
-        {
-          user_id: userId,
-          challenge_id: challengeId,
-          assignment_code: createAssignmentCode(),
-          status: "assigned",
-          assigned_by: userData.user?.id,
-        },
-        { onConflict: "user_id,challenge_id" },
-      )
+      .insert({
+        user_id: userId,
+        challenge_id: challengeId,
+        status: "assigned",
+        assigned_by: userData.user?.id,
+      })
       .select("*")
       .single();
 

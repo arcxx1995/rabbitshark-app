@@ -76,9 +76,32 @@ create table if not exists public.challenges (
   created_at timestamptz not null default now()
 );
 
+create or replace function public.generate_user_challenge_assignment_code()
+returns text
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  generated_code text;
+begin
+  loop
+    generated_code := lpad((floor(random() * 900000000) + 100000000)::bigint::text, 9, '0');
+
+    exit when not exists (
+      select 1
+      from public.user_challenges
+      where assignment_code = generated_code
+    );
+  end loop;
+
+  return generated_code;
+end;
+$$;
+
 create table if not exists public.user_challenges (
   id uuid primary key default gen_random_uuid(),
-  assignment_code text not null default lpad((floor(random() * 900000000) + 100000000)::bigint::text, 9, '0'),
+  assignment_code text not null default public.generate_user_challenge_assignment_code(),
   user_id uuid not null references auth.users(id) on delete cascade,
   challenge_id uuid not null references public.challenges(id) on delete cascade,
   status text not null default 'assigned'
@@ -92,25 +115,64 @@ create table if not exists public.user_challenges (
   total_possible_points numeric,
   funded boolean not null default false,
   scenario_results jsonb not null default '[]'::jsonb,
-  unique (assignment_code),
-  unique (user_id, challenge_id)
+  constraint user_challenges_assignment_code_format check (assignment_code ~ '^[0-9]{9}$'),
+  unique (assignment_code)
 );
 
 alter table public.user_challenges
 add column if not exists assignment_code text;
 
 alter table public.user_challenges
-alter column assignment_code set default lpad((floor(random() * 900000000) + 100000000)::bigint::text, 9, '0');
+alter column assignment_code set default public.generate_user_challenge_assignment_code();
 
-update public.user_challenges
-set assignment_code = lpad((floor(random() * 900000000) + 100000000)::bigint::text, 9, '0')
-where assignment_code is null;
+do $$
+declare
+  assignment record;
+  generated_code text;
+begin
+  for assignment in
+    select id
+    from public.user_challenges
+    where assignment_code is null
+  loop
+    loop
+      generated_code := public.generate_user_challenge_assignment_code();
+
+      exit when not exists (
+        select 1
+        from public.user_challenges
+        where assignment_code = generated_code
+      );
+    end loop;
+
+    update public.user_challenges
+    set assignment_code = generated_code
+    where id = assignment.id;
+  end loop;
+end $$;
 
 alter table public.user_challenges
 alter column assignment_code set not null;
 
 create unique index if not exists user_challenges_assignment_code_key
 on public.user_challenges (assignment_code);
+
+create index if not exists user_challenges_user_challenge_idx
+on public.user_challenges (user_id, challenge_id);
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'user_challenges_assignment_code_format'
+      and conrelid = 'public.user_challenges'::regclass
+  ) then
+    alter table public.user_challenges
+    add constraint user_challenges_assignment_code_format
+    check (assignment_code ~ '^[0-9]{9}$');
+  end if;
+end $$;
 
 alter table public.profiles enable row level security;
 alter table public.developer_users enable row level security;
