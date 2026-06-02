@@ -15,6 +15,7 @@ function mapEvaluationRow(row) {
 
   return {
     ...row,
+    fileCode: row.file_code,
     evaluation: resolvedEvaluation,
     questionCount: row.question_count ?? resolvedEvaluation.questionCount,
   };
@@ -93,6 +94,7 @@ const ASSIGNMENT_LOOKUP_SELECT = `
     created_at,
     evaluation_files (
       id,
+      file_code,
       slug,
       title,
       version,

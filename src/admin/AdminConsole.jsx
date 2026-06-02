@@ -100,9 +100,9 @@ function AssignmentScoreRows({ assignment }) {
 }
 
 export default function AdminConsole() {
-  const [evaluationFiles, setEvaluationFiles] = useState([]);
+  const [, setEvaluationFiles] = useState([]);
   const [challenges, setChallenges] = useState([]);
-  const [selectedEvaluationId, setSelectedEvaluationId] = useState("");
+  const [, setSelectedEvaluationId] = useState("");
   const [selectedChallengeId, setSelectedChallengeId] = useState("");
   const [challengeName, setChallengeName] = useState("");
   const [challengeControlFile, setChallengeControlFile] = useState(null);
@@ -125,12 +125,8 @@ export default function AdminConsole() {
   const [healthRows, setHealthRows] = useState([]);
   const [healthLoading, setHealthLoading] = useState(false);
   const [healthSearched, setHealthSearched] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [, setLoading] = useState(true);
   const [message, setMessage] = useState(null);
-
-  const selectedEvaluation = useMemo(() => {
-    return evaluationFiles.find((file) => file.id === selectedEvaluationId);
-  }, [evaluationFiles, selectedEvaluationId]);
 
   const selectedChallenge = useMemo(() => {
     return challenges.find((challenge) => challenge.id === selectedChallengeId);
@@ -264,11 +260,11 @@ export default function AdminConsole() {
       setChallengeControlFile(savedFile);
       setChallengeFileCheck({
         status: "valid",
-        text: `${savedFile.evaluation.title} is compatible with the poker engine.`,
+        text: `${savedFile.file_code ?? savedFile.fileCode} is compatible with the poker engine.`,
       });
       setMessage({
         type: "success",
-        text: `Saved ${savedFile.evaluation.title} to the database.`,
+        text: `Saved challenge file ${savedFile.file_code ?? savedFile.fileCode}.`,
       });
       await loadAdminData();
       setSelectedEvaluationId(savedFile.id);
@@ -694,6 +690,11 @@ export default function AdminConsole() {
                               "Evaluation file"}
                           </div>
                           <div className="mt-4 flex flex-wrap gap-2">
+                            {selectedChallenge.evaluation_files?.file_code ? (
+                              <Badge>
+                                {selectedChallenge.evaluation_files.file_code}
+                              </Badge>
+                            ) : null}
                             <Badge>
                               Created {formatDate(selectedChallenge.created_at)}
                             </Badge>
@@ -712,103 +713,16 @@ export default function AdminConsole() {
                 <div>
                   <div className="mb-3 flex flex-wrap gap-2">
                     <Badge>Challenge Database</Badge>
-                    <Badge>Stored challenge files</Badge>
+                    <Badge>Created challenges</Badge>
                   </div>
                   <h2 className="font-display text-3xl font-black sm:text-4xl">
-                    Challenge files and created challenges.
+                    Database challenges.
                   </h2>
                   <p className="mt-3 max-w-3xl text-sm leading-6 text-white/62">
-                    JSON files uploaded from Challenge Control are stored here as
-                    challenge files. Created database challenges are listed below
-                    and can be selected for assignment.
+                    Challenges created from compatible JSON uploads appear here.
+                    Each one is linked to a stored challenge file with a unique
+                    C-number.
                   </p>
-
-                  <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
-                    <div className="rounded-[1.5rem] border border-white/10 bg-black/55 p-5">
-                      <div className="mb-3 flex items-center justify-between gap-3">
-                        <h3 className="font-display text-xl font-bold">
-                          Challenge Files
-                        </h3>
-                        <Badge>
-                          {loading ? "Loading" : `${evaluationFiles.length} total`}
-                        </Badge>
-                      </div>
-
-                      {evaluationFiles.length === 0 && !loading ? (
-                        <div className="rounded-2xl border border-dashed border-white/12 bg-black/20 p-5 text-sm leading-6 text-white/55">
-                          No challenge files yet. Upload a JSON file in Challenge
-                          Control to store one here.
-                        </div>
-                      ) : null}
-
-                      <div className="grid gap-3 md:grid-cols-2">
-                        {evaluationFiles.map((file) => {
-                          const selected = file.id === selectedEvaluationId;
-
-                          return (
-                            <button
-                              key={file.id}
-                              type="button"
-                              onClick={() => {
-                                setSelectedEvaluationId(file.id);
-                                setChallengeName(file.evaluation.title);
-                              }}
-                              className={[
-                                "rounded-2xl border p-4 text-left transition",
-                                selected
-                                  ? "border-green bg-green/10"
-                                  : "border-white/10 bg-black/25 hover:border-white/20 hover:bg-white/[0.06]",
-                              ].join(" ")}
-                            >
-                              <div className="font-display text-lg font-bold leading-tight">
-                                {file.evaluation.title}
-                              </div>
-                              <div className="mt-1 text-xs text-white/52">
-                                {file.slug}
-                              </div>
-                              <p className="mt-3 line-clamp-2 text-sm leading-6 text-white/52">
-                                {file.evaluation.description ||
-                                  "No description recorded."}
-                              </p>
-                              <div className="mt-3 flex flex-wrap gap-2">
-                                <Badge>{file.questionCount} questions</Badge>
-                                <Badge>
-                                  Target{" "}
-                                  {file.evaluation.fundedThresholdPercent ?? 80}%
-                                </Badge>
-                                <Badge>{selected ? "Selected" : "Stored"}</Badge>
-                              </div>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-
-                    <div className="rounded-[1.5rem] border border-white/10 bg-white/[0.04] p-5">
-                      <div className="text-xs font-bold uppercase tracking-[0.16em] text-green">
-                        Active Selection
-                      </div>
-                      {selectedEvaluation ? (
-                        <>
-                          <h3 className="mt-2 font-display text-2xl font-bold">
-                            {selectedEvaluation.evaluation.title}
-                          </h3>
-                          <p className="mt-2 text-sm leading-6 text-white/58">
-                            {selectedEvaluation.evaluation.description}
-                          </p>
-                          <div className="mt-4 flex flex-wrap gap-2">
-                            <Badge>{selectedEvaluation.questionCount} questions</Badge>
-                            <Badge>{selectedEvaluation.slug}</Badge>
-                          </div>
-                        </>
-                      ) : (
-                        <p className="mt-3 text-sm leading-6 text-white/55">
-                          Select a stored challenge file to use it in Challenge
-                          Control.
-                        </p>
-                      )}
-                    </div>
-                  </div>
 
                   <div className="mt-6 rounded-[1.5rem] border border-white/10 bg-black/45 p-5">
                     <div className="mb-3 flex items-center justify-between gap-3">
@@ -818,6 +732,12 @@ export default function AdminConsole() {
                       <Badge>{challenges.length} total</Badge>
                     </div>
                     <div className="grid gap-3 md:grid-cols-2">
+                      {challenges.length === 0 ? (
+                        <div className="rounded-2xl border border-dashed border-white/12 bg-black/20 p-5 text-sm leading-6 text-white/55 md:col-span-2">
+                          No database challenges yet. Upload a compatible JSON
+                          file in Challenge Control, then create a challenge.
+                        </div>
+                      ) : null}
                       {challenges.map((challenge) => (
                         <button
                           key={challenge.id}
@@ -837,6 +757,10 @@ export default function AdminConsole() {
                             Created {formatDate(challenge.created_at)}
                           </div>
                           <div className="mt-3 flex flex-wrap gap-2">
+                            <Badge>
+                              {challenge.evaluation_files?.file_code ??
+                                "No file code"}
+                            </Badge>
                             <Badge>
                               {challenge.evaluation_files?.title ?? "Evaluation"}
                             </Badge>
@@ -1150,6 +1074,9 @@ export default function AdminConsole() {
                                 </div>
 
                                 <div className="mt-3 flex flex-wrap gap-2">
+                                  {evaluationFile?.file_code ? (
+                                    <Badge>{evaluationFile.file_code}</Badge>
+                                  ) : null}
                                   <Badge>
                                     {evaluationFile?.slug ?? "No evaluation slug"}
                                   </Badge>
