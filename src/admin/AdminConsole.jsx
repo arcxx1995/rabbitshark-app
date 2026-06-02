@@ -105,6 +105,11 @@ export default function AdminConsole() {
   const [selectedEvaluationId, setSelectedEvaluationId] = useState("");
   const [selectedChallengeId, setSelectedChallengeId] = useState("");
   const [challengeName, setChallengeName] = useState("");
+  const [challengeControlFile, setChallengeControlFile] = useState(null);
+  const [challengeFileCheck, setChallengeFileCheck] = useState({
+    status: "idle",
+    text: "Upload a challenge JSON file to check compatibility.",
+  });
   const [userQuery, setUserQuery] = useState("");
   const [userResults, setUserResults] = useState([]);
   const [userSearchLoading, setUserSearchLoading] = useState(false);
@@ -245,11 +250,22 @@ export default function AdminConsole() {
 
     if (!file) return;
 
+    setChallengeControlFile(null);
+    setChallengeFileCheck({
+      status: "checking",
+      text: "Checking compatibility with the poker engine...",
+    });
+
     try {
       const content = await file.text();
       const parsedEvaluation = JSON.parse(content);
       const savedFile = await saveEvaluationFileToDatabase(parsedEvaluation);
 
+      setChallengeControlFile(savedFile);
+      setChallengeFileCheck({
+        status: "valid",
+        text: `${savedFile.evaluation.title} is compatible with the poker engine.`,
+      });
       setMessage({
         type: "success",
         text: `Saved ${savedFile.evaluation.title} to the database.`,
@@ -258,6 +274,13 @@ export default function AdminConsole() {
       setSelectedEvaluationId(savedFile.id);
       setChallengeName(savedFile.evaluation.title);
     } catch (error) {
+      setChallengeFileCheck({
+        status: "error",
+        text:
+          error instanceof Error
+            ? error.message
+            : "Challenge JSON is not compatible with the poker engine.",
+      });
       setMessage({
         type: "error",
         text: error instanceof Error ? error.message : "Could not save JSON file.",
@@ -266,26 +289,35 @@ export default function AdminConsole() {
   };
 
   const handleCreateChallenge = async () => {
-    if (!selectedEvaluation) {
-      setMessage({ type: "error", text: "Select an evaluation file first." });
+    if (!challengeControlFile) {
+      setMessage({
+        type: "error",
+        text: "Upload a compatible challenge JSON file first.",
+      });
       return;
     }
 
-    const name = challengeName.trim() || selectedEvaluation.evaluation.title;
+    const name = challengeName.trim() || challengeControlFile.evaluation.title;
 
     try {
       const challenge = await createChallengeForEvaluation({
         name,
-        evaluationFileId: selectedEvaluation.id,
+        evaluationFileId: challengeControlFile.id,
       });
 
       setMessage({
         type: "success",
-        text: `Created challenge ${challenge.name}.`,
+        text: `Created challenge ${challenge.name} in the database.`,
       });
       await loadAdminData();
       setSelectedChallengeId(challenge.id);
       setChallengeName("");
+      setChallengeControlFile(null);
+      setChallengeFileCheck({
+        status: "idle",
+        text: "Upload a challenge JSON file to check compatibility.",
+      });
+      setActiveSection("database");
     } catch (error) {
       setMessage({
         type: "error",
@@ -1199,7 +1231,8 @@ export default function AdminConsole() {
                             Upload Challenge JSON
                           </span>
                           <span className="mt-1 text-xs leading-5 text-white/48">
-                            Save the evaluation file, then create a challenge from it.
+                            The file is checked against the poker engine and saved
+                            when compatible.
                           </span>
                           <input
                             className="sr-only"
@@ -1209,32 +1242,42 @@ export default function AdminConsole() {
                           />
                         </label>
 
-                        <label className="mb-4 block">
-                          <span className="text-xs font-bold uppercase tracking-[0.14em] text-white/58">
-                            Source Challenge File
-                          </span>
-                          <select
-                            className="mt-2 h-12 w-full rounded-xl border border-white/10 bg-black px-4 text-sm text-green outline-none focus:border-green"
-                            value={selectedEvaluationId}
-                            onChange={(event) => {
-                              const nextEvaluation = evaluationFiles.find(
-                                (file) => file.id === event.target.value,
-                              );
-
-                              setSelectedEvaluationId(event.target.value);
-                              setChallengeName(
-                                nextEvaluation?.evaluation.title ?? challengeName,
-                              );
-                            }}
-                          >
-                            <option value="">Choose stored file</option>
-                            {evaluationFiles.map((file) => (
-                              <option key={file.id} value={file.id}>
-                                {file.evaluation.title}
-                              </option>
-                            ))}
-                          </select>
-                        </label>
+                        <div
+                          className={[
+                            "mb-4 flex items-start gap-3 rounded-xl border p-3 text-sm leading-6",
+                            challengeFileCheck.status === "valid"
+                              ? "border-green/30 bg-green/10 text-green"
+                              : challengeFileCheck.status === "error"
+                                ? "border-red-300/30 bg-red-500/10 text-red-200"
+                                : challengeFileCheck.status === "checking"
+                                  ? "border-yellow-200/30 bg-yellow-300/10 text-yellow-100"
+                                  : "border-white/10 bg-white/[0.04] text-white/52",
+                          ].join(" ")}
+                        >
+                          {challengeFileCheck.status === "valid" ? (
+                            <CheckCircle2 className="mt-1 h-4 w-4 shrink-0" />
+                          ) : challengeFileCheck.status === "error" ? (
+                            <AlertCircle className="mt-1 h-4 w-4 shrink-0" />
+                          ) : challengeFileCheck.status === "checking" ? (
+                            <RefreshCw className="mt-1 h-4 w-4 shrink-0" />
+                          ) : (
+                            <FileJson2 className="mt-1 h-4 w-4 shrink-0" />
+                          )}
+                          <div>
+                            <div className="font-bold">
+                              {challengeFileCheck.status === "valid"
+                                ? "Compatible"
+                                : challengeFileCheck.status === "error"
+                                  ? "Not compatible"
+                                  : challengeFileCheck.status === "checking"
+                                    ? "Checking file"
+                                    : "Awaiting upload"}
+                            </div>
+                            <div className="text-xs opacity-80">
+                              {challengeFileCheck.text}
+                            </div>
+                          </div>
+                        </div>
 
                         <label className="block">
                           <span className="text-xs font-bold uppercase tracking-[0.14em] text-white/58">
@@ -1247,7 +1290,11 @@ export default function AdminConsole() {
                             placeholder="100K Cash Evaluation"
                           />
                         </label>
-                        <Button className="mt-4 w-full" onClick={handleCreateChallenge}>
+                        <Button
+                          className="mt-4 w-full"
+                          onClick={handleCreateChallenge}
+                          disabled={!challengeControlFile}
+                        >
                           <FileJson2 className="mr-2 h-5 w-5" />
                           Create Challenge
                         </Button>
