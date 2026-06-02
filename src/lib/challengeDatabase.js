@@ -85,6 +85,24 @@ function exactEmailFirst(query) {
   };
 }
 
+const ASSIGNMENT_LOOKUP_SELECT = `
+  *,
+  challenges (
+    id,
+    name,
+    created_at,
+    evaluation_files (
+      id,
+      slug,
+      title,
+      version,
+      question_count,
+      funded_threshold_percent,
+      total_possible_points
+    )
+  )
+`;
+
 async function addAssignedByProfiles(client, assignments) {
   const assignedByIds = [
     ...new Set(
@@ -244,25 +262,7 @@ export async function searchAssignmentsByEmail(query) {
   const profileById = new Map(profiles.map((profile) => [profile.id, profile]));
   const { data, error } = await client
     .from("user_challenges")
-    .select(
-      `
-        *,
-        challenges (
-          id,
-          name,
-          created_at,
-          evaluation_files (
-            id,
-            slug,
-            title,
-            version,
-            question_count,
-            funded_threshold_percent,
-            total_possible_points
-          )
-        )
-      `,
-    )
+    .select(ASSIGNMENT_LOOKUP_SELECT)
     .in("user_id", profiles.map((profile) => profile.id))
     .order("assigned_at", { ascending: false });
 
@@ -276,36 +276,37 @@ export async function searchAssignmentsByEmail(query) {
   return addAssignedByProfiles(client, assignments);
 }
 
-export async function listAssignmentsForUserChallenge({ userId, challengeId }) {
+export async function searchAssignmentByCode(query) {
   const client = requireSupabase();
+  const assignmentCode = query.trim().replace(/^#/, "").replace(/\D/g, "");
+
+  if (assignmentCode.length !== 9) return [];
+
   const { data, error } = await client
     .from("user_challenges")
-    .select(
-      `
-        *,
-        challenges (
-          id,
-          name,
-          created_at,
-          evaluation_files (
-            id,
-            slug,
-            title,
-            version,
-            question_count,
-            funded_threshold_percent,
-            total_possible_points
-          )
-        )
-      `,
-    )
-    .eq("user_id", userId)
-    .eq("challenge_id", challengeId)
+    .select(ASSIGNMENT_LOOKUP_SELECT)
+    .eq("assignment_code", assignmentCode)
     .order("assigned_at", { ascending: false });
 
   if (error) throw error;
 
-  return addAssignedByProfiles(client, data ?? []);
+  if (!data?.length) return [];
+
+  const profileIds = [...new Set(data.map((assignment) => assignment.user_id))];
+  const { data: profiles, error: profileError } = await client
+    .from("profiles")
+    .select("id,email,display_name")
+    .in("id", profileIds);
+
+  if (profileError) throw profileError;
+
+  const profileById = new Map((profiles ?? []).map((profile) => [profile.id, profile]));
+  const assignments = data.map((assignment) => ({
+    ...assignment,
+    profile: profileById.get(assignment.user_id),
+  }));
+
+  return addAssignedByProfiles(client, assignments);
 }
 
 export async function revokeAssignedChallenge(assignmentId) {

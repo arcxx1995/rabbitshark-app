@@ -248,7 +248,7 @@ export default function PokerTable() {
             <div className="mb-1 hidden flex-wrap gap-2 sm:flex">
               {currentChallenge?.assignmentCode ? (
                 <Badge className="border-green/45 text-green">
-                  Code {currentChallenge.assignmentCode}
+                  #{currentChallenge.assignmentCode}
                 </Badge>
               ) : null}
               <Badge>{progressLabel}</Badge>

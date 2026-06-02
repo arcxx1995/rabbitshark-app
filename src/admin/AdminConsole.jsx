@@ -6,6 +6,7 @@ import {
   CheckCircle2,
   Database,
   FileJson2,
+  Hash,
   HeartPulse,
   LogOut,
   RefreshCw,
@@ -18,12 +19,12 @@ import {
   assignChallengeToUser,
   checkChallengeSystemHealth,
   createChallengeForEvaluation,
-  listAssignmentsForUserChallenge,
   listDatabaseChallenges,
   listDatabaseEvaluationFiles,
   revokeAssignedChallenge,
   resetTestAssignedChallenge,
   saveEvaluationFileToDatabase,
+  searchAssignmentByCode,
   searchAssignmentsByEmail,
   searchProfiles,
 } from "../lib/challengeDatabase";
@@ -109,10 +110,9 @@ export default function AdminConsole() {
   const [userSearchLoading, setUserSearchLoading] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
   const [activeSection, setActiveSection] = useState("challenges");
-  const [assignmentHistory, setAssignmentHistory] = useState([]);
-  const [assignmentHistoryLoading, setAssignmentHistoryLoading] = useState(false);
-  const [repeatAssignmentConfirmed, setRepeatAssignmentConfirmed] = useState(false);
+  const [assignmentLookupMode, setAssignmentLookupMode] = useState("email");
   const [assignmentLookupEmail, setAssignmentLookupEmail] = useState("");
+  const [assignmentLookupCode, setAssignmentLookupCode] = useState("");
   const [assignmentResults, setAssignmentResults] = useState([]);
   const [assignmentLookupLoading, setAssignmentLookupLoading] = useState(false);
   const [assignmentLookupSearched, setAssignmentLookupSearched] = useState(false);
@@ -201,40 +201,6 @@ export default function AdminConsole() {
       window.clearTimeout(timeoutId);
     };
   }, [userQuery]);
-
-  const refreshAssignmentHistory = useCallback(async () => {
-    if (!selectedChallenge?.id || !selectedUser?.id) {
-      setAssignmentHistory([]);
-      setRepeatAssignmentConfirmed(false);
-      return;
-    }
-
-    setAssignmentHistoryLoading(true);
-
-    try {
-      const history = await listAssignmentsForUserChallenge({
-        challengeId: selectedChallenge.id,
-        userId: selectedUser.id,
-      });
-
-      setAssignmentHistory(history);
-      setAssignmentHistoryLoading(false);
-      setRepeatAssignmentConfirmed(false);
-    } catch (error) {
-      setAssignmentHistoryLoading(false);
-      setMessage({
-        type: "error",
-        text:
-          error instanceof Error
-            ? error.message
-            : "Could not load assignment history.",
-      });
-    }
-  }, [selectedChallenge?.id, selectedUser?.id]);
-
-  useEffect(() => {
-    refreshAssignmentHistory();
-  }, [refreshAssignmentHistory]);
 
   const loadHealth = useCallback(async () => {
     setHealthLoading(true);
@@ -340,15 +306,6 @@ export default function AdminConsole() {
       return;
     }
 
-    if (assignmentHistory.length > 0 && !repeatAssignmentConfirmed) {
-      setRepeatAssignmentConfirmed(true);
-      setMessage({
-        type: "warning",
-        text: `${selectedUser.email} already has ${assignmentHistory.length} assignment instance${assignmentHistory.length === 1 ? "" : "s"} for this challenge. Click Assign Another Instance to confirm.`,
-      });
-      return;
-    }
-
     try {
       const assignment = await assignChallengeToUser({
         challengeId: selectedChallenge.id,
@@ -359,7 +316,6 @@ export default function AdminConsole() {
         type: "success",
         text: `Assigned ${selectedChallenge.name} to ${selectedUser.email}. Code: ${assignment.assignment_code}.`,
       });
-      await refreshAssignmentHistory();
     } catch (error) {
       setMessage({
         type: "error",
@@ -384,7 +340,6 @@ export default function AdminConsole() {
         await handleAssignmentLookup();
       }
 
-      await refreshAssignmentHistory();
     } catch (error) {
       setMessage({
         type: "error",
@@ -409,7 +364,6 @@ export default function AdminConsole() {
         await handleAssignmentLookup();
       }
 
-      await refreshAssignmentHistory();
     } catch (error) {
       setMessage({
         type: "error",
@@ -422,7 +376,24 @@ export default function AdminConsole() {
   };
 
   const handleAssignmentLookup = async () => {
-    if (assignmentLookupEmail.trim().length < 2) {
+    const lookupValue =
+      assignmentLookupMode === "code"
+        ? assignmentLookupCode.trim()
+        : assignmentLookupEmail.trim();
+
+    if (assignmentLookupMode === "code") {
+      const normalizedCode = lookupValue.replace(/^#/, "").replace(/\D/g, "");
+
+      if (normalizedCode.length !== 9) {
+        setMessage({
+          type: "error",
+          text: "Enter a 9-digit assignment number.",
+        });
+        return;
+      }
+    }
+
+    if (assignmentLookupMode === "email" && lookupValue.length < 2) {
       setMessage({
         type: "error",
         text: "Enter at least two characters of an email ID.",
@@ -434,7 +405,10 @@ export default function AdminConsole() {
     setAssignmentLookupSearched(true);
 
     try {
-      const results = await searchAssignmentsByEmail(assignmentLookupEmail);
+      const results =
+        assignmentLookupMode === "code"
+          ? await searchAssignmentByCode(lookupValue)
+          : await searchAssignmentsByEmail(lookupValue);
 
       setAssignmentResults(results);
       setExpandedAssignmentIds([]);
@@ -698,9 +672,7 @@ export default function AdminConsole() {
 
                       <Button className="mt-4 w-full" onClick={handleAssignChallenge}>
                         <UserPlus className="mr-2 h-5 w-5" />
-                        {assignmentHistory.length > 0 && repeatAssignmentConfirmed
-                          ? "Assign Another Instance"
-                          : "Assign Challenge"}
+                        Assign Challenge
                       </Button>
                     </div>
 
@@ -731,61 +703,6 @@ export default function AdminConsole() {
                       )}
                     </div>
                   </div>
-
-                  {selectedUser && selectedChallenge ? (
-                    <div className="mt-6 rounded-[1.5rem] border border-white/10 bg-black/45 p-5">
-                      <div className="mb-3 flex items-center justify-between gap-3">
-                        <div>
-                          <div className="text-xs font-bold uppercase tracking-[0.16em] text-green">
-                            Existing Assignment Instances
-                          </div>
-                          <h3 className="mt-1 font-display text-xl font-bold">
-                            {selectedUser.email}
-                          </h3>
-                        </div>
-                        <Badge>
-                          {assignmentHistoryLoading
-                            ? "Loading"
-                            : `${assignmentHistory.length} found`}
-                        </Badge>
-                      </div>
-
-                      {assignmentHistory.length === 0 && !assignmentHistoryLoading ? (
-                        <div className="rounded-xl border border-dashed border-white/10 bg-white/[0.04] p-4 text-sm text-white/50">
-                          No previous instances for this challenge and user.
-                        </div>
-                      ) : null}
-
-                      <div className="grid gap-3 md:grid-cols-2">
-                        {assignmentHistory.map((assignment) => (
-                          <div
-                            key={assignment.id}
-                            className="rounded-xl border border-white/10 bg-black/35 p-4"
-                          >
-                            <div className="flex items-start justify-between gap-3">
-                              <div>
-                                <div className="font-display text-xl font-black tracking-[0.12em] text-green">
-                                  {assignment.assignment_code}
-                                </div>
-                                <div className="mt-1 text-xs text-white/45">
-                                  Assigned {formatDateTime(assignment.assigned_at)}
-                                </div>
-                              </div>
-                              <Badge className={getStatusBadgeClass(assignment.status)}>
-                                {assignment.status}
-                              </Badge>
-                            </div>
-                            <div className="mt-3 text-xs leading-5 text-white/50">
-                              Assigned by{" "}
-                              {assignment.assignedByProfile?.email ??
-                                assignment.assigned_by ??
-                                "Not recorded"}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ) : null}
                 </div>
               ) : activeSection === "health" ? (
                 <div>
@@ -853,35 +770,85 @@ export default function AdminConsole() {
                 <div>
                   <div className="mb-3 flex flex-wrap gap-2">
                     <Badge>Assignment Lookup</Badge>
-                    <Badge>Email search</Badge>
+                    <Badge>Email or assignment number</Badge>
                   </div>
                   <h2 className="font-display text-3xl font-black sm:text-4xl">
                     Find assignment numbers and challenge details.
                   </h2>
                   <p className="mt-3 max-w-3xl text-sm leading-6 text-white/62">
-                    Search by user email ID to see assigned challenge numbers,
-                    status, evaluation file, and score details.
+                    Search by user email ID to show every assigned challenge, or
+                    search by the 9-digit assignment number to show one exact
+                    assignment.
                   </p>
 
                   <div className="mt-6 rounded-[1.5rem] border border-white/10 bg-black/60 p-5">
+                    <div className="mb-4 grid gap-2 rounded-xl border border-white/10 bg-white/[0.04] p-1 sm:grid-cols-2">
+                      {[
+                        ["email", "Email ID"],
+                        ["code", "Assignment Number"],
+                      ].map(([mode, label]) => (
+                        <button
+                          key={mode}
+                          type="button"
+                          onClick={() => {
+                            setAssignmentLookupMode(mode);
+                            setAssignmentResults([]);
+                            setExpandedAssignmentIds([]);
+                            setAssignmentLookupSearched(false);
+                          }}
+                          className={[
+                            "flex h-10 items-center justify-center gap-2 rounded-lg text-xs font-bold uppercase tracking-[0.14em] transition",
+                            assignmentLookupMode === mode
+                              ? "bg-green text-black"
+                              : "text-white/58 hover:bg-white/8 hover:text-white",
+                          ].join(" ")}
+                        >
+                          {mode === "code" ? (
+                            <Hash className="h-4 w-4" />
+                          ) : (
+                            <Search className="h-4 w-4" />
+                          )}
+                          {label}
+                        </button>
+                      ))}
+                    </div>
                     <label className="block">
                       <span className="text-xs font-bold uppercase tracking-[0.14em] text-white/58">
-                        Email ID
+                        {assignmentLookupMode === "code"
+                          ? "Assignment Number"
+                          : "Email ID"}
                       </span>
                       <div className="mt-2 flex min-h-12 flex-col gap-3 rounded-xl border border-white/10 bg-white/5 px-3 py-3 focus-within:border-green sm:flex-row sm:items-center sm:py-0">
-                        <Search className="h-4 w-4 shrink-0 text-white/45" />
+                        {assignmentLookupMode === "code" ? (
+                          <Hash className="h-4 w-4 shrink-0 text-white/45" />
+                        ) : (
+                          <Search className="h-4 w-4 shrink-0 text-white/45" />
+                        )}
                         <input
                           className="min-w-0 flex-1 bg-transparent text-sm text-green outline-none placeholder:text-white/35"
-                          value={assignmentLookupEmail}
-                          onChange={(event) =>
-                            setAssignmentLookupEmail(event.target.value)
+                          value={
+                            assignmentLookupMode === "code"
+                              ? assignmentLookupCode
+                              : assignmentLookupEmail
                           }
+                          onChange={(event) => {
+                            if (assignmentLookupMode === "code") {
+                              setAssignmentLookupCode(event.target.value);
+                              return;
+                            }
+
+                            setAssignmentLookupEmail(event.target.value);
+                          }}
                           onKeyDown={(event) => {
                             if (event.key === "Enter") {
                               handleAssignmentLookup();
                             }
                           }}
-                          placeholder="client@example.com"
+                          placeholder={
+                            assignmentLookupMode === "code"
+                              ? "#364728949"
+                              : "client@example.com"
+                          }
                         />
                         <Button
                           className="h-9 px-4 text-xs sm:w-auto"
@@ -909,7 +876,11 @@ export default function AdminConsole() {
                     !assignmentLookupLoading &&
                     assignmentResults.length === 0 ? (
                       <div className="rounded-2xl border border-dashed border-white/12 bg-black/20 p-5 text-sm leading-6 text-white/55">
-                        No assignments found for that email ID.
+                        No assignments found for that{" "}
+                        {assignmentLookupMode === "code"
+                          ? "assignment number"
+                          : "email ID"}
+                        .
                       </div>
                     ) : null}
 
@@ -927,141 +898,164 @@ export default function AdminConsole() {
                         return (
                           <div
                             key={assignment.id}
-                            className="rounded-2xl border border-white/10 bg-black/40 p-4"
+                            className="rounded-2xl border border-white/10 bg-black/40"
                           >
-                            <div className="flex items-start justify-between gap-3">
-                              <div>
+                            <button
+                              type="button"
+                              onClick={() => toggleExpandedAssignment(assignment.id)}
+                              className="flex w-full items-start justify-between gap-3 p-4 text-left"
+                            >
+                              <div className="min-w-0">
                                 <div className="font-display text-2xl font-black tracking-[0.12em] text-green">
-                                  {assignment.assignment_code}
+                                  #{assignment.assignment_code}
                                 </div>
-                                <div className="mt-1 text-xs text-white/45">
+                                <div className="mt-1 truncate text-xs text-white/45">
                                   {profile?.email ?? assignment.user_id}
                                 </div>
+                                <div className="mt-3 font-display text-lg font-bold text-white">
+                                  {challenge?.name ?? "Challenge"}
+                                </div>
+                                <div className="mt-1 text-sm text-white/55">
+                                  {evaluationFile?.title ?? "Evaluation file"}
+                                </div>
                               </div>
-                              <Badge className={getStatusBadgeClass(assignment.status)}>
-                                {assignment.status}
-                              </Badge>
-                            </div>
+                              <div className="flex shrink-0 items-center gap-2">
+                                <Badge className={getStatusBadgeClass(assignment.status)}>
+                                  {assignment.status}
+                                </Badge>
+                                <ChevronDown
+                                  className={[
+                                    "h-5 w-5 text-white/45 transition",
+                                    expanded ? "rotate-180" : "",
+                                  ].join(" ")}
+                                />
+                              </div>
+                            </button>
 
-                            <div className="mt-4 border-t border-white/10 pt-4">
-                              <div className="font-display text-lg font-bold">
-                                {challenge?.name ?? "Challenge"}
-                              </div>
-                              <div className="mt-1 text-sm text-white/55">
-                                {evaluationFile?.title ?? "Evaluation file"}
-                              </div>
-                              <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                                <div className="rounded-lg border border-white/10 bg-black/50 p-3">
-                                  <div className="text-[11px] font-bold uppercase tracking-[0.12em] text-white/35">
-                                    Assigned
+                            {expanded ? (
+                              <div className="border-t border-white/10 p-4">
+                                <div className="grid gap-2 sm:grid-cols-2">
+                                  <div className="rounded-lg border border-white/10 bg-black/50 p-3">
+                                    <div className="text-[11px] font-bold uppercase tracking-[0.12em] text-white/35">
+                                      Assigned
+                                    </div>
+                                    <div className="mt-1 text-sm font-bold text-green">
+                                      {formatDateTime(assignment.assigned_at)}
+                                    </div>
                                   </div>
-                                  <div className="mt-1 text-sm font-bold text-green">
-                                    {formatDate(assignment.assigned_at)}
+                                  <div className="rounded-lg border border-white/10 bg-black/50 p-3">
+                                    <div className="text-[11px] font-bold uppercase tracking-[0.12em] text-white/35">
+                                      Started
+                                    </div>
+                                    <div className="mt-1 text-sm font-bold text-green">
+                                      {formatDateTime(assignment.started_at)}
+                                    </div>
+                                  </div>
+                                  <div className="rounded-lg border border-white/10 bg-black/50 p-3">
+                                    <div className="text-[11px] font-bold uppercase tracking-[0.12em] text-white/35">
+                                      Completed
+                                    </div>
+                                    <div className="mt-1 text-sm font-bold text-green">
+                                      {formatDateTime(assignment.completed_at)}
+                                    </div>
+                                  </div>
+                                  <div className="rounded-lg border border-white/10 bg-black/50 p-3">
+                                    <div className="text-[11px] font-bold uppercase tracking-[0.12em] text-white/35">
+                                      Questions
+                                    </div>
+                                    <div className="mt-1 text-sm font-bold text-green">
+                                      {evaluationFile?.question_count ?? "Not set"}
+                                    </div>
+                                  </div>
+                                  <div className="rounded-lg border border-white/10 bg-black/50 p-3">
+                                    <div className="text-[11px] font-bold uppercase tracking-[0.12em] text-white/35">
+                                      Score
+                                    </div>
+                                    <div className="mt-1 text-sm font-bold text-green">
+                                      {assignment.score ?? "Not scored"}
+                                    </div>
+                                  </div>
+                                  <div className="rounded-lg border border-white/10 bg-black/50 p-3">
+                                    <div className="text-[11px] font-bold uppercase tracking-[0.12em] text-white/35">
+                                      Points
+                                    </div>
+                                    <div className="mt-1 text-sm font-bold text-green">
+                                      {assignment.earned_points ?? 0}/
+                                      {assignment.total_possible_points ??
+                                        evaluationFile?.total_possible_points ??
+                                        "Not set"}
+                                    </div>
+                                  </div>
+                                  <div className="rounded-lg border border-white/10 bg-black/50 p-3">
+                                    <div className="text-[11px] font-bold uppercase tracking-[0.12em] text-white/35">
+                                      Assigned By
+                                    </div>
+                                    <div className="mt-1 break-words text-sm font-bold text-green">
+                                      {assignment.assignedByProfile?.email ??
+                                        assignment.assigned_by ??
+                                        "Not recorded"}
+                                    </div>
+                                  </div>
+                                  <div className="rounded-lg border border-white/10 bg-black/50 p-3">
+                                    <div className="text-[11px] font-bold uppercase tracking-[0.12em] text-white/35">
+                                      Assignment ID
+                                    </div>
+                                    <div className="mt-1 break-words text-sm font-bold text-green">
+                                      {assignment.id}
+                                    </div>
                                   </div>
                                 </div>
-                                <div className="rounded-lg border border-white/10 bg-black/50 p-3">
-                                  <div className="text-[11px] font-bold uppercase tracking-[0.12em] text-white/35">
-                                    Started
-                                  </div>
-                                  <div className="mt-1 text-sm font-bold text-green">
-                                    {formatDate(assignment.started_at)}
-                                  </div>
+
+                                <div className="mt-3 flex flex-wrap gap-2">
+                                  <Badge>
+                                    {evaluationFile?.slug ?? "No evaluation slug"}
+                                  </Badge>
+                                  <Badge>
+                                    Target{" "}
+                                    {evaluationFile?.funded_threshold_percent ?? 80}%
+                                  </Badge>
+                                  <Badge>
+                                    {assignment.funded ? "Funded" : "Not funded"}
+                                  </Badge>
+                                  {assignment.is_test_assignment ? (
+                                    <>
+                                      <Badge className="border-yellow-200/45 text-yellow-100">
+                                        Testing Replica
+                                      </Badge>
+                                      <Badge>
+                                        Resets {assignment.reset_count ?? 0}
+                                      </Badge>
+                                    </>
+                                  ) : null}
                                 </div>
-                                <div className="rounded-lg border border-white/10 bg-black/50 p-3">
-                                  <div className="text-[11px] font-bold uppercase tracking-[0.12em] text-white/35">
-                                    Score
-                                  </div>
-                                  <div className="mt-1 text-sm font-bold text-green">
-                                    {assignment.score ?? "Not scored"}
-                                  </div>
+
+                                <div className="mt-4 flex flex-wrap gap-2">
+                                  {canRevoke ? (
+                                    <Button
+                                      className="h-9 px-4 text-xs"
+                                      variant="danger"
+                                      onClick={() => handleRevokeAssignment(assignment)}
+                                    >
+                                      <Ban className="mr-2 h-4 w-4" />
+                                      Revoke
+                                    </Button>
+                                  ) : null}
+                                  {canResetTest ? (
+                                    <Button
+                                      className="h-9 px-4 text-xs"
+                                      variant="secondary"
+                                      onClick={() =>
+                                        handleResetTestAssignment(assignment)
+                                      }
+                                    >
+                                      <RefreshCw className="mr-2 h-4 w-4" />
+                                      Reset Test
+                                    </Button>
+                                  ) : null}
                                 </div>
-                                <div className="rounded-lg border border-white/10 bg-black/50 p-3">
-                                  <div className="text-[11px] font-bold uppercase tracking-[0.12em] text-white/35">
-                                    Questions
-                                  </div>
-                                  <div className="mt-1 text-sm font-bold text-green">
-                                    {evaluationFile?.question_count ?? "Not set"}
-                                  </div>
-                                </div>
-                                <div className="rounded-lg border border-white/10 bg-black/50 p-3">
-                                  <div className="text-[11px] font-bold uppercase tracking-[0.12em] text-white/35">
-                                    Assigned By
-                                  </div>
-                                  <div className="mt-1 break-words text-sm font-bold text-green">
-                                    {assignment.assignedByProfile?.email ??
-                                      assignment.assigned_by ??
-                                      "Not recorded"}
-                                  </div>
-                                </div>
-                                <div className="rounded-lg border border-white/10 bg-black/50 p-3">
-                                  <div className="text-[11px] font-bold uppercase tracking-[0.12em] text-white/35">
-                                    Completed
-                                  </div>
-                                  <div className="mt-1 text-sm font-bold text-green">
-                                    {formatDate(assignment.completed_at)}
-                                  </div>
-                                </div>
-                              </div>
-                              <div className="mt-3 flex flex-wrap gap-2">
-                                <Badge>
-                                  {evaluationFile?.slug ?? "No evaluation slug"}
-                                </Badge>
-                                <Badge>
-                                  Target {evaluationFile?.funded_threshold_percent ?? 80}%
-                                </Badge>
-                                <Badge>
-                                  {assignment.funded ? "Funded" : "Not funded"}
-                                </Badge>
-                                {assignment.is_test_assignment ? (
-                                  <>
-                                    <Badge className="border-yellow-200/45 text-yellow-100">
-                                      Testing Replica
-                                    </Badge>
-                                    <Badge>
-                                      Resets {assignment.reset_count ?? 0}
-                                    </Badge>
-                                  </>
-                                ) : null}
-                              </div>
-                              <div className="mt-4 flex flex-wrap gap-2">
-                                <Button
-                                  className="h-9 px-4 text-xs"
-                                  variant="secondary"
-                                  onClick={() => toggleExpandedAssignment(assignment.id)}
-                                >
-                                  <ChevronDown
-                                    className={[
-                                      "mr-2 h-4 w-4 transition",
-                                      expanded ? "rotate-180" : "",
-                                    ].join(" ")}
-                                  />
-                                  {expanded ? "Hide Results" : "Show Results"}
-                                </Button>
-                                {canRevoke ? (
-                                  <Button
-                                    className="h-9 px-4 text-xs"
-                                    variant="danger"
-                                    onClick={() => handleRevokeAssignment(assignment)}
-                                  >
-                                    <Ban className="mr-2 h-4 w-4" />
-                                    Revoke
-                                  </Button>
-                                ) : null}
-                                {canResetTest ? (
-                                  <Button
-                                    className="h-9 px-4 text-xs"
-                                    variant="secondary"
-                                    onClick={() => handleResetTestAssignment(assignment)}
-                                  >
-                                    <RefreshCw className="mr-2 h-4 w-4" />
-                                    Reset Test
-                                  </Button>
-                                ) : null}
-                              </div>
-                              {expanded ? (
                                 <AssignmentScoreRows assignment={assignment} />
-                              ) : null}
-                            </div>
+                              </div>
+                            ) : null}
                           </div>
                         );
                       })}

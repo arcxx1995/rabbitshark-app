@@ -324,7 +324,7 @@ export default function ScenarioDashboard() {
                         </div>
                       ) : (
                         <div className="grid max-h-[48vh] gap-3 overflow-auto pr-1 md:grid-cols-2">
-                          {activeChallenges.map((challenge, index) => {
+                          {activeChallenges.map((challenge) => {
                             const isCurrentChallenge =
                               currentChallenge?.id === challenge.id;
                             const questionCount =
@@ -351,7 +351,7 @@ export default function ScenarioDashboard() {
                               <div className="flex items-start justify-between gap-3">
                                 <div>
                                   <div className="font-display text-lg font-bold">
-                                    {challenge.title} #{index + 1}
+                                    {challenge.title}
                                   </div>
                                   <div className="mt-1 flex items-center gap-2 text-xs text-white/45">
                                     <Clock3 className="h-3.5 w-3.5" />
@@ -359,7 +359,7 @@ export default function ScenarioDashboard() {
                                   </div>
                                   {challenge.assignmentCode ? (
                                     <div className="mt-2 inline-flex rounded-md border border-green/35 bg-green/10 px-2 py-1 font-display text-xs font-black tracking-[0.12em] text-green">
-                                      Code {challenge.assignmentCode}
+                                      #{challenge.assignmentCode}
                                     </div>
                                   ) : null}
                                 </div>
@@ -449,7 +449,7 @@ export default function ScenarioDashboard() {
                                 </div>
                                 {challenge.assignmentCode ? (
                                   <div className="mt-2 inline-flex rounded-md border border-green/35 bg-green/10 px-2 py-1 font-display text-xs font-black tracking-[0.12em] text-green">
-                                    Code {challenge.assignmentCode}
+                                    #{challenge.assignmentCode}
                                   </div>
                                 ) : null}
                               </div>
