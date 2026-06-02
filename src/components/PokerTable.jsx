@@ -173,30 +173,21 @@ function buildTableViewModel(scenario, animationStep) {
   const visibleActions = scenario.previousActions.slice(0, animationStep);
   const latestAction =
     animationStep > 0 ? scenario.previousActions[animationStep - 1] : null;
-  const latestBet = latestAction ? getBetForAction(latestAction, seats, positions) : null;
   const tableBets = buildVisibleBets(visibleActions, seats, positions);
   const previousTableBets = buildVisibleBets(
     scenario.previousActions.slice(0, Math.max(animationStep - 1, 0)),
     seats,
     positions,
   );
-  const visibleTableBets =
-    latestBet && !isStreetRevealAction(latestAction)
-      ? previousTableBets.filter((bet) => bet.id !== latestBet.id)
-      : tableBets;
 
   return {
     positions,
     seats,
     visibleBoard: getVisibleBoard(scenario, animationStep),
     decisionReady: animationStep >= scenario.previousActions.length,
-    tableBets: visibleTableBets,
-    chipAnimation: latestBet
-      ? {
-          type: "bet",
-          bets: [latestBet],
-        }
-      : latestAction && isStreetRevealAction(latestAction) && previousTableBets.length > 0
+    tableBets,
+    chipAnimation:
+      latestAction && isStreetRevealAction(latestAction) && previousTableBets.length > 0
         ? {
             type: "collect",
             bets: previousTableBets,
@@ -228,16 +219,25 @@ function ChipMarker({ amount }) {
 
 function TableBetChips({ bets }) {
   return bets.map((bet) => (
-    <div
-      key={`table-bet-${bet.id}`}
+    <motion.div
+      key={`table-bet-${bet.id}-${bet.amount}`}
       className="pointer-events-none absolute z-20 -translate-x-1/2 -translate-y-1/2"
-      style={{
+      initial={{
+        left: `${bet.from.x}%`,
+        top: `${bet.from.y}%`,
+        scale: 0.82,
+        opacity: 1,
+      }}
+      animate={{
         left: `${bet.spot.x}%`,
         top: `${bet.spot.y}%`,
+        scale: 1,
+        opacity: 1,
       }}
+      transition={{ duration: 0.58, ease: "easeInOut" }}
     >
       <ChipMarker amount={bet.amount} />
-    </div>
+    </motion.div>
   ));
 }
 
@@ -256,17 +256,17 @@ function AnimatedChipMovement({ animation }) {
         initial={{
           left: `${from.x}%`,
           top: `${from.y}%`,
-          scale: 0.82,
-          opacity: 0,
+          scale: 1,
+          opacity: 1,
         }}
         animate={{
           left: `${to.x}%`,
           top: `${to.y}%`,
           scale: 1,
-          opacity: isCollecting ? [0, 1, 1, 0] : [0, 1, 1, 1],
+          opacity: isCollecting ? [1, 1, 0] : 1,
         }}
         exit={{ opacity: 0, scale: 0.9 }}
-        transition={{ duration: isCollecting ? 0.72 : 0.58, ease: "easeInOut" }}
+        transition={{ duration: 0.72, ease: "easeInOut" }}
       >
         <ChipMarker amount={bet.amount} />
       </motion.div>
