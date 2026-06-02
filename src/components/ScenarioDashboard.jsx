@@ -148,11 +148,6 @@ export default function ScenarioDashboard() {
   const startChallengeFromDashboard = (challenge) => {
     if (!challenge) return;
 
-    if (challenge.isTestAssignment) {
-      startEvaluation("All", challenge.id);
-      return;
-    }
-
     requestChallengeStart(challenge.id);
   };
   const closeStartGate = () => {
