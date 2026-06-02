@@ -60,6 +60,9 @@ function mapAssignedChallenge(row) {
     currentQuestionIndex: row.current_question_index ?? 0,
     decisionTimeLimitSeconds: row.decision_time_limit_seconds ?? 25,
     lastProgressAt: row.last_progress_at,
+    isTestAssignment: Boolean(row.is_test_assignment),
+    resetCount: row.reset_count ?? 0,
+    lastResetAt: row.last_reset_at,
     dbBacked: true,
     evaluation,
   };
@@ -308,6 +311,17 @@ export async function listAssignmentsForUserChallenge({ userId, challengeId }) {
 export async function revokeAssignedChallenge(assignmentId) {
   const client = requireSupabase();
   const { data, error } = await client.rpc("revoke_user_challenge", {
+    target_assignment_id: assignmentId,
+  });
+
+  if (error) throw error;
+
+  return Array.isArray(data) ? data[0] : data;
+}
+
+export async function resetTestAssignedChallenge(assignmentId) {
+  const client = requireSupabase();
+  const { data, error } = await client.rpc("reset_test_user_challenge", {
     target_assignment_id: assignmentId,
   });
 

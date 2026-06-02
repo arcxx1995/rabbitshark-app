@@ -1,4 +1,4 @@
-import { Award, Home, RotateCcw } from "lucide-react";
+import { Award, Home } from "lucide-react";
 import ScorePanel from "./ScorePanel";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
@@ -18,7 +18,6 @@ export default function EvaluationSummary() {
   );
   const funded = useEvaluationStore((state) => state.isFunded());
   const goDashboard = useEvaluationStore((state) => state.goDashboard);
-  const resetEvaluation = useEvaluationStore((state) => state.resetEvaluation);
 
   return (
     <main className="h-dvh overflow-hidden bg-aurora text-green">
@@ -79,10 +78,6 @@ export default function EvaluationSummary() {
             <Button onClick={goDashboard}>
               <Home className="mr-2 h-4 w-4" />
               Dashboard
-            </Button>
-            <Button variant="secondary" onClick={resetEvaluation}>
-              <RotateCcw className="mr-2 h-4 w-4" />
-              Reset Evaluation
             </Button>
           </div>
         </section>

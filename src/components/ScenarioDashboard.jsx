@@ -9,7 +9,6 @@ import {
   LayoutDashboard,
   LogOut,
   Play,
-  RotateCcw,
   ShieldCheck,
   Trophy,
   XCircle,
@@ -66,7 +65,6 @@ export default function ScenarioDashboard() {
   const [expandedChallengeId, setExpandedChallengeId] = useState(null);
   const [pendingChallengeStart, setPendingChallengeStart] = useState(null);
   const startEvaluation = useEvaluationStore((state) => state.startEvaluation);
-  const resetEvaluation = useEvaluationStore((state) => state.resetEvaluation);
   const currentChallenge = useEvaluationStore((state) => state.currentChallenge);
   const storedActiveChallenges = useEvaluationStore((state) => state.activeChallenges);
   const pastChallenges = useEvaluationStore((state) => state.pastChallenges);
@@ -146,6 +144,16 @@ export default function ScenarioDashboard() {
   };
   const requestChallengeStart = (challengeId) => {
     setPendingChallengeStart({ category: "All", challengeId });
+  };
+  const startChallengeFromDashboard = (challenge) => {
+    if (!challenge) return;
+
+    if (challenge.isTestAssignment) {
+      startEvaluation("All", challenge.id);
+      return;
+    }
+
+    requestChallengeStart(challenge.id);
   };
   const closeStartGate = () => {
     setActiveScreen("dashboard");
@@ -237,21 +245,13 @@ export default function ScenarioDashboard() {
                 <Button
                   className="h-10 px-4 text-xs"
                   onClick={() =>
-                    requestChallengeStart(currentChallenge?.id ?? activeChallenges[0]?.id)
+                    startChallengeFromDashboard(currentChallenge ?? activeChallenges[0])
                   }
                 >
                   <Play className="mr-2 h-4 w-4" />
                   Start
                 </Button>
               ) : null}
-              <Button
-                className="h-10 px-4 text-xs"
-                variant="secondary"
-                onClick={resetEvaluation}
-              >
-                <RotateCcw className="mr-2 h-4 w-4" />
-                Reset
-              </Button>
               <Button className="h-10 px-4 text-xs" variant="danger" onClick={logout}>
                 <LogOut className="mr-2 h-4 w-4" />
                 Log Out
@@ -372,6 +372,14 @@ export default function ScenarioDashboard() {
                                   {challengeStatus}
                                 </Badge>
                               </div>
+                              {challenge.isTestAssignment ? (
+                                <div className="mt-3 flex flex-wrap gap-2">
+                                  <Badge className="border-yellow-200/45 text-yellow-100">
+                                    Testing Replica
+                                  </Badge>
+                                  <Badge>Resettable in admin</Badge>
+                                </div>
+                              ) : null}
                               <div className="mt-4 grid grid-cols-3 gap-2">
                                 {[
                                   ["Progress", `${progressCount}/${questionCount}`],
@@ -390,7 +398,7 @@ export default function ScenarioDashboard() {
                               </div>
                               <Button
                                 className="mt-4 h-10 w-full px-4 text-xs"
-                                onClick={() => requestChallengeStart(challenge.id)}
+                                onClick={() => startChallengeFromDashboard(challenge)}
                               >
                                 <Play className="mr-2 h-4 w-4" />
                                 Continue Challenge

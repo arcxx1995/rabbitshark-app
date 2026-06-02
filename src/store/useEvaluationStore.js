@@ -482,44 +482,6 @@ export const useEvaluationStore = create(
     });
   },
 
-  resetEvaluation: async () => {
-    const activeEvaluation = get().activeEvaluation;
-    const scenarios = activeEvaluation.questions;
-
-    const currentChallenge = get().currentChallenge
-      ? {
-          ...get().currentChallenge,
-          status: "Ready",
-          startedAt: null,
-          score: 0,
-          earnedPoints: 0,
-          funded: false,
-          scenarioResults: [],
-        }
-      : null;
-
-    set({
-      activeEvaluation,
-      scenarios,
-      scenarioCategories: getScenarioCategories(scenarios),
-      mode: "dashboard",
-      currentScenarioIndex: 0,
-      currentScenario: scenarios[0],
-      currentStreet: scenarios[0].street,
-      animationStep: 0,
-      selectedAction: null,
-      feedbackVisible: false,
-      stats: initialStats,
-      currentChallenge,
-      activeChallenges: currentChallenge
-        ? get().activeChallenges.map((challenge) =>
-            challenge.id === currentChallenge.id ? currentChallenge : challenge,
-          )
-        : get().activeChallenges,
-    });
-
-  },
-
   getAverageScore: () => {
     const { stats } = get();
     if (stats.completedScenarios.length === 0) return 0;

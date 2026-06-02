@@ -22,6 +22,7 @@ import {
   listDatabaseChallenges,
   listDatabaseEvaluationFiles,
   revokeAssignedChallenge,
+  resetTestAssignedChallenge,
   saveEvaluationFileToDatabase,
   searchAssignmentsByEmail,
   searchProfiles,
@@ -391,6 +392,31 @@ export default function AdminConsole() {
           error instanceof Error
             ? error.message
             : "Could not revoke assignment.",
+      });
+    }
+  };
+
+  const handleResetTestAssignment = async (assignment) => {
+    try {
+      const resetAssignment = await resetTestAssignedChallenge(assignment.id);
+
+      setMessage({
+        type: "success",
+        text: `Reset test assignment ${resetAssignment.assignment_code}.`,
+      });
+
+      if (assignmentLookupSearched) {
+        await handleAssignmentLookup();
+      }
+
+      await refreshAssignmentHistory();
+    } catch (error) {
+      setMessage({
+        type: "error",
+        text:
+          error instanceof Error
+            ? error.message
+            : "Could not reset test assignment.",
       });
     }
   };
@@ -896,6 +922,7 @@ export default function AdminConsole() {
                         const canRevoke =
                           assignment.status === "assigned" ||
                           assignment.status === "active";
+                        const canResetTest = Boolean(assignment.is_test_assignment);
 
                         return (
                           <div
@@ -985,6 +1012,16 @@ export default function AdminConsole() {
                                 <Badge>
                                   {assignment.funded ? "Funded" : "Not funded"}
                                 </Badge>
+                                {assignment.is_test_assignment ? (
+                                  <>
+                                    <Badge className="border-yellow-200/45 text-yellow-100">
+                                      Testing Replica
+                                    </Badge>
+                                    <Badge>
+                                      Resets {assignment.reset_count ?? 0}
+                                    </Badge>
+                                  </>
+                                ) : null}
                               </div>
                               <div className="mt-4 flex flex-wrap gap-2">
                                 <Button
@@ -1008,6 +1045,16 @@ export default function AdminConsole() {
                                   >
                                     <Ban className="mr-2 h-4 w-4" />
                                     Revoke
+                                  </Button>
+                                ) : null}
+                                {canResetTest ? (
+                                  <Button
+                                    className="h-9 px-4 text-xs"
+                                    variant="secondary"
+                                    onClick={() => handleResetTestAssignment(assignment)}
+                                  >
+                                    <RefreshCw className="mr-2 h-4 w-4" />
+                                    Reset Test
                                   </Button>
                                 ) : null}
                               </div>
