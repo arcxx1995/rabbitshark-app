@@ -255,9 +255,9 @@ export default function AdminConsole() {
   };
 
   return (
-    <main className="h-dvh overflow-y-auto bg-aurora text-green">
-      <section className="grid-shell min-h-dvh overflow-hidden">
-        <div className="mx-auto flex min-h-dvh w-full max-w-7xl flex-col px-5 pb-12 pt-5 sm:px-8 sm:pb-14 sm:pt-7 lg:px-12">
+    <main className="h-dvh overflow-y-scroll bg-aurora text-green">
+      <section className="grid-shell min-h-screen overflow-hidden">
+        <div className="mx-auto flex min-h-screen w-full max-w-7xl flex-col px-5 pb-12 pt-5 sm:px-8 sm:pb-14 sm:pt-7 lg:px-12">
           <header className="flex items-center justify-between gap-4">
             <a href="#" className="font-display text-2xl tracking-[0.18em]">
               RABBITSHARK
