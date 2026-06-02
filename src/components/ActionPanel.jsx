@@ -48,7 +48,7 @@ export default function ActionPanel({
               </div>
             </div>
             <Button className="h-10 px-4 text-xs" onClick={onContinue}>
-              Continue
+              Confirm
             </Button>
           </div>
         ) : (
@@ -108,7 +108,7 @@ export default function ActionPanel({
               {decisionResult.feedback}
             </p>
             <Button className="mt-4" onClick={onContinue}>
-              Continue
+              Confirm
             </Button>
           </div>
         ) : (

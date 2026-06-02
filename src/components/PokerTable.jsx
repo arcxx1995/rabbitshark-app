@@ -98,16 +98,95 @@ function coordinateStyle(position) {
   };
 }
 
+function parseActionAmount(action) {
+  if (!/\b(bets?|raises?|calls?|posts?|3-bets?)\b/i.test(action)) return null;
+
+  const numberMatches = action.match(/\d+(?:\.\d+)?/g);
+  if (!numberMatches?.length) return null;
+
+  return `${numberMatches[numberMatches.length - 1]} BB`;
+}
+
+function getActionActor(action, seats) {
+  return seats.find((player) => {
+    return action.includes(player.position) || action.includes(player.name);
+  });
+}
+
+function getChipAnimation(action, seats, positions) {
+  const amount = parseActionAmount(action);
+  if (!amount) return null;
+
+  const actor = getActionActor(action, seats) ?? seats.find((player) => player.isHero);
+  const actorIndex = seats.findIndex((player) => player === actor);
+  const origin = positions[actorIndex];
+
+  if (!origin) return null;
+
+  return {
+    amount,
+    from: origin,
+    to: tableCenterLayout.pot,
+  };
+}
+
 function buildTableViewModel(scenario, animationStep) {
   const positions = seatLayouts[scenario.tableFormat] ?? seatLayouts["6-max"];
   const seats = buildSeatList(scenario).slice(0, positions.length);
+  const latestAction =
+    animationStep > 0 ? scenario.previousActions[animationStep - 1] : null;
 
   return {
     positions,
     seats,
     visibleBoard: getVisibleBoard(scenario, animationStep),
     decisionReady: animationStep >= scenario.previousActions.length,
+    chipAnimation: latestAction
+      ? getChipAnimation(latestAction, seats, positions)
+      : null,
   };
+}
+
+function AnimatedPotChips({ animation }) {
+  if (!animation) return null;
+
+  return (
+    <motion.div
+      key={`${animation.amount}-${animation.from.x}-${animation.from.y}`}
+      className="pointer-events-none absolute z-30 -translate-x-1/2 -translate-y-1/2"
+      initial={{
+        left: `${animation.from.x}%`,
+        top: `${animation.from.y}%`,
+        scale: 0.82,
+        opacity: 0,
+      }}
+      animate={{
+        left: `${animation.to.x}%`,
+        top: `${animation.to.y}%`,
+        scale: 1,
+        opacity: [0, 1, 1, 0],
+      }}
+      exit={{ opacity: 0, scale: 0.9 }}
+      transition={{ duration: 0.72, ease: "easeInOut" }}
+    >
+      <div className="flex items-center gap-2 rounded-full border border-green/35 bg-black/75 px-3 py-1.5 text-green shadow-[0_0_28px_rgba(0,255,171,.24)]">
+        <div className="relative h-4 w-7">
+          {[0, 1, 2].map((chip) => (
+            <span
+              key={chip}
+              className="absolute left-0 h-2 w-7 rounded-full border border-black/40 bg-green"
+              style={{ bottom: chip * 3 }}
+            >
+              <span className="absolute inset-x-2 top-1 h-px bg-black/30" />
+            </span>
+          ))}
+        </div>
+        <span className="font-display text-xs font-black tracking-[0.12em]">
+          {animation.amount}
+        </span>
+      </div>
+    </motion.div>
+  );
 }
 
 export default function PokerTable() {
@@ -258,6 +337,13 @@ export default function PokerTable() {
                   </AnimatePresence>
                 </div>
               </motion.div>
+
+              <AnimatePresence mode="wait">
+                <AnimatedPotChips
+                  key={`chips-${animationStep}`}
+                  animation={tableView.chipAnimation}
+                />
+              </AnimatePresence>
 
                 {tableView.seats.map((player, index) => (
                   <PlayerSeat
