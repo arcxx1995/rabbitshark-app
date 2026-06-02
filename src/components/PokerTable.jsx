@@ -113,8 +113,9 @@ export default function PokerTable() {
   }, [advanceAnimation, animationStep, isDecisionReady, selectedAction]);
 
   return (
-    <main className="h-dvh overflow-hidden bg-room bg-fixed px-2 py-2 text-white sm:px-4 sm:py-3 lg:px-6">
-      <div className="mx-auto flex h-full max-w-[1680px] flex-col gap-2 sm:gap-3">
+    <main className="h-dvh overflow-hidden bg-aurora text-green">
+      <section className="grid-shell h-full px-2 py-2 sm:px-4 sm:py-3 lg:px-6">
+        <div className="mx-auto flex h-full max-w-[1680px] flex-col gap-2 sm:gap-3">
         <header className="flex shrink-0 items-center justify-between gap-3">
           <div className="min-w-0">
             <div className="mb-1 hidden flex-wrap gap-2 sm:flex">
@@ -138,10 +139,10 @@ export default function PokerTable() {
 
         <div className="grid min-h-0 flex-1 gap-3 xl:grid-cols-[1fr_360px]">
           <section className="grid min-h-0 place-items-center">
-            <div className="relative aspect-[16/10] max-h-[calc(100dvh-72px)] w-full max-w-[1280px] overflow-hidden rounded-[2rem] border border-white/10 bg-black/35 shadow-2xl">
-              <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_15%,rgba(216,185,104,.12),transparent_32%)]" />
+            <div className="relative aspect-[16/10] max-h-[calc(100dvh-72px)] w-full max-w-[1280px] overflow-hidden rounded-[1.8rem] border border-white/10 bg-black/60 shadow-2xl">
+              <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_15%,rgba(0,255,171,.16),transparent_32%)]" />
               <motion.div
-                className="absolute bottom-[25%] left-[9.2%] right-[9.2%] top-[11.8%] rounded-full border border-cyan-200/25 table-felt-texture shadow-table ring-[16px] ring-[#172334]"
+                className="absolute bottom-[25%] left-[9.2%] right-[9.2%] top-[11.8%] rounded-full border border-green/25 table-surface-texture shadow-table ring-[16px] ring-white/5"
                 initial={{ scale: 0.92, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 transition={{ type: "spring", stiffness: 90, damping: 18 }}
@@ -151,7 +152,7 @@ export default function PokerTable() {
                   style={coordinateStyle(tableCenterLayout.street)}
                 >
                   <div className="flex flex-wrap items-center justify-center gap-2">
-                    <Badge className="border-felt-500/45 text-felt-500">
+                    <Badge className="border-green/45 text-green">
                       {scenario.street}
                     </Badge>
                   </div>
@@ -164,7 +165,7 @@ export default function PokerTable() {
                   <div className="text-[9px] font-bold uppercase tracking-[0.18em] text-white/45">
                     Pot
                   </div>
-                  <div className="font-display text-2xl font-black leading-none text-gold-400 sm:text-3xl">
+                  <div className="font-display text-2xl font-black leading-none text-green sm:text-3xl">
                     {scenario.pot}
                   </div>
                 </div>
@@ -227,8 +228,8 @@ export default function PokerTable() {
             />
           </aside>
         </div>
-      </div>
-
+        </div>
+      </section>
     </main>
   );
 }

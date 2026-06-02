@@ -21,10 +21,11 @@ export default function EvaluationSummary() {
   const resetEvaluation = useEvaluationStore((state) => state.resetEvaluation);
 
   return (
-    <main className="h-dvh overflow-hidden bg-room bg-fixed px-3 py-3 text-white sm:px-6 sm:py-6 lg:px-8">
-      <div className="mx-auto grid h-full max-w-6xl gap-3 lg:grid-cols-[1fr_340px] lg:gap-6">
+    <main className="h-dvh overflow-hidden bg-aurora text-green">
+      <section className="grid-shell h-full px-3 py-3 sm:px-6 sm:py-6 lg:px-8">
+        <div className="mx-auto grid h-full max-w-6xl gap-3 lg:grid-cols-[1fr_340px] lg:gap-6">
         <section className="glass-panel min-h-0 overflow-hidden rounded-[1.75rem] p-5 sm:rounded-[2.75rem] sm:p-10">
-          <div className="grid h-12 w-12 place-items-center rounded-2xl bg-gold-500/15 text-gold-400 sm:h-16 sm:w-16 sm:rounded-3xl">
+          <div className="grid h-12 w-12 place-items-center rounded-2xl border border-green/20 bg-green/10 text-green sm:h-16 sm:w-16 sm:rounded-3xl">
             <Award size={28} />
           </div>
           <h1 className="mt-4 font-display text-3xl font-black tracking-tight sm:mt-6 sm:text-6xl">
@@ -37,7 +38,7 @@ export default function EvaluationSummary() {
 
           <div className="my-5 sm:my-8">
             <div className="mb-3 flex items-end justify-between">
-              <span className="font-display text-2xl font-black text-gold-400 sm:text-3xl">
+              <span className="font-display text-2xl font-black text-green sm:text-3xl">
                 {stats.totalScore}/{totalPossible} pts
               </span>
               <span className="font-display text-xl font-bold sm:text-2xl">
@@ -64,7 +65,7 @@ export default function EvaluationSummary() {
                   Selected {scenario.selectedAction}; best action was{" "}
                   {scenario.bestAction}.
                 </div>
-                <div className="mt-3 text-xl font-black text-gold-400">
+                <div className="mt-3 text-xl font-black text-green">
                   {scenario.points}/{scenario.maxPoints} pts
                 </div>
                 <div className="mt-1 text-xs text-white/45">
@@ -111,7 +112,8 @@ export default function EvaluationSummary() {
             </CardContent>
           </Card>
         </aside>
-      </div>
+        </div>
+      </section>
     </main>
   );
 }

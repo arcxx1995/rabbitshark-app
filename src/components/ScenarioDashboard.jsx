@@ -140,8 +140,9 @@ export default function ScenarioDashboard() {
   };
 
   return (
-    <main className="grid-shell h-dvh overflow-hidden bg-aurora px-3 py-3 text-green sm:px-6 sm:py-5 lg:px-8">
-      <div className="mx-auto grid h-full max-w-[1500px] gap-4 lg:grid-cols-[240px_1fr]">
+    <main className="h-dvh overflow-hidden bg-aurora text-green">
+      <section className="grid-shell h-full px-3 py-3 sm:px-6 sm:py-5 lg:px-8">
+        <div className="mx-auto grid h-full max-w-[1500px] gap-4 lg:grid-cols-[240px_1fr]">
         <aside className="section-card hidden min-h-0 rounded-[1.5rem] p-3 lg:flex lg:flex-col">
           <div>
             <div className="px-2 py-3">
@@ -505,7 +506,8 @@ export default function ScenarioDashboard() {
             </aside>
           </div>
         </div>
-      </div>
+        </div>
+      </section>
     </main>
   );
 }
