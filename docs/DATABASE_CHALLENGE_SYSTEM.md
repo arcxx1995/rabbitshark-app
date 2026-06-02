@@ -1,8 +1,11 @@
 # Database Challenge System
 
 Run this SQL in Supabase before using the database-backed admin console.
-The same setup is also available as a migration at
-`supabase/migrations/20260602000000_challenge_system.sql`.
+The same setup is also available in the Supabase migrations:
+
+- `supabase/migrations/20260602000000_challenge_system.sql`
+- `supabase/migrations/20260602010000_allow_repeated_challenge_assignments.sql`
+- `supabase/migrations/20260602020000_assignment_admin_workflow.sql`
 
 ## Tables And Profiles
 
@@ -361,10 +364,23 @@ for select
 to authenticated
 using (user_id = auth.uid());
 
-create policy "users update own active challenge progress"
+create policy "users cannot directly update challenge progress"
 on public.user_challenges
 for update
 to authenticated
-using (user_id = auth.uid() and status in ('assigned', 'active'))
-with check (user_id = auth.uid());
+using (false)
+with check (false);
 ```
+
+## Assignment RPCs
+
+The deployed app uses RPCs for assignment and progress writes:
+
+- `assign_challenge_to_user(challenge_id, user_id)` creates a new assignment instance.
+- `revoke_user_challenge(assignment_id)` revokes assigned or active instances.
+- `mark_user_challenge_started(assignment_id)` starts a user's own assignment.
+- `complete_user_challenge(...)` completes a user's own assignment with validated result fields.
+- `get_challenge_system_health()` returns admin-visible deployment checks.
+
+The latest migration also replaces direct player update access with a blocking
+RLS policy. Player progress writes should go through the RPC layer.

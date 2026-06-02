@@ -51,6 +51,56 @@ function mapAssignedChallenge(row) {
   };
 }
 
+function normalizeSearchQuery(query) {
+  return query.trim().replace(/[%,()]/g, " ");
+}
+
+function exactEmailFirst(query) {
+  const normalizedQuery = query.trim().toLowerCase();
+
+  return (left, right) => {
+    const leftExact = left.email?.toLowerCase() === normalizedQuery;
+    const rightExact = right.email?.toLowerCase() === normalizedQuery;
+
+    if (leftExact !== rightExact) return leftExact ? -1 : 1;
+
+    return String(left.email ?? "").localeCompare(String(right.email ?? ""));
+  };
+}
+
+async function addAssignedByProfiles(client, assignments) {
+  const assignedByIds = [
+    ...new Set(
+      assignments
+        .map((assignment) => assignment.assigned_by)
+        .filter(Boolean),
+    ),
+  ];
+
+  if (assignedByIds.length === 0) {
+    return assignments.map((assignment) => ({
+      ...assignment,
+      assignedByProfile: null,
+    }));
+  }
+
+  const { data: assignedByProfiles, error } = await client
+    .from("profiles")
+    .select("id,email,display_name")
+    .in("id", assignedByIds);
+
+  if (error) throw error;
+
+  const assignedByProfileById = new Map(
+    (assignedByProfiles ?? []).map((profile) => [profile.id, profile]),
+  );
+
+  return assignments.map((assignment) => ({
+    ...assignment,
+    assignedByProfile: assignedByProfileById.get(assignment.assigned_by) ?? null,
+  }));
+}
+
 export async function listDatabaseEvaluationFiles() {
   const client = requireSupabase();
   const { data, error } = await client
@@ -130,7 +180,7 @@ export async function createChallengeForEvaluation({ name, evaluationFileId }) {
 
 export async function searchProfiles(query) {
   const client = requireSupabase();
-  const normalizedQuery = query.trim();
+  const normalizedQuery = normalizeSearchQuery(query);
 
   if (normalizedQuery.length < 2) return [];
 
@@ -143,45 +193,24 @@ export async function searchProfiles(query) {
 
   if (error) throw error;
 
-  return data ?? [];
+  return (data ?? []).sort(exactEmailFirst(query));
 }
 
 export async function assignChallengeToUser({ challengeId, userId }) {
   const client = requireSupabase();
-  const { data: userData, error: userError } = await client.auth.getUser();
+  const { data, error } = await client.rpc("assign_challenge_to_user", {
+    target_challenge_id: challengeId,
+    target_user_id: userId,
+  });
 
-  if (userError) throw userError;
+  if (error) throw error;
 
-  let lastCollisionError = null;
-
-  for (let attempt = 0; attempt < 5; attempt += 1) {
-    const { data, error } = await client
-      .from("user_challenges")
-      .insert({
-        user_id: userId,
-        challenge_id: challengeId,
-        status: "assigned",
-        assigned_by: userData.user?.id,
-      })
-      .select("*")
-      .single();
-
-    if (!error) return data;
-
-    const collidedOnAssignmentCode =
-      error.code === "23505" && String(error.message).includes("assignment_code");
-
-    if (!collidedOnAssignmentCode) throw error;
-
-    lastCollisionError = error;
-  }
-
-  throw lastCollisionError;
+  return Array.isArray(data) ? data[0] : data;
 }
 
 export async function searchAssignmentsByEmail(query) {
   const client = requireSupabase();
-  const normalizedQuery = query.trim();
+  const normalizedQuery = normalizeSearchQuery(query);
 
   if (normalizedQuery.length < 2) return [];
 
@@ -222,10 +251,64 @@ export async function searchAssignmentsByEmail(query) {
 
   if (error) throw error;
 
-  return (data ?? []).map((assignment) => ({
+  const assignments = (data ?? []).map((assignment) => ({
     ...assignment,
     profile: profileById.get(assignment.user_id),
   }));
+
+  return addAssignedByProfiles(client, assignments);
+}
+
+export async function listAssignmentsForUserChallenge({ userId, challengeId }) {
+  const client = requireSupabase();
+  const { data, error } = await client
+    .from("user_challenges")
+    .select(
+      `
+        *,
+        challenges (
+          id,
+          name,
+          created_at,
+          evaluation_files (
+            id,
+            slug,
+            title,
+            version,
+            question_count,
+            funded_threshold_percent,
+            total_possible_points
+          )
+        )
+      `,
+    )
+    .eq("user_id", userId)
+    .eq("challenge_id", challengeId)
+    .order("assigned_at", { ascending: false });
+
+  if (error) throw error;
+
+  return addAssignedByProfiles(client, data ?? []);
+}
+
+export async function revokeAssignedChallenge(assignmentId) {
+  const client = requireSupabase();
+  const { data, error } = await client.rpc("revoke_user_challenge", {
+    target_assignment_id: assignmentId,
+  });
+
+  if (error) throw error;
+
+  return Array.isArray(data) ? data[0] : data;
+}
+
+export async function checkChallengeSystemHealth() {
+  const client = requireSupabase();
+  const { data, error } = await client.rpc("get_challenge_system_health");
+
+  if (error) throw error;
+
+  return data ?? [];
 }
 
 export async function getAssignedChallengesForCurrentUser() {
@@ -257,39 +340,27 @@ export async function getAssignedChallengesForCurrentUser() {
 
 export async function markAssignedChallengeStarted(assignmentId) {
   const client = requireSupabase();
-  const { data, error } = await client
-    .from("user_challenges")
-    .update({
-      status: "active",
-      started_at: new Date().toISOString(),
-    })
-    .eq("id", assignmentId)
-    .select("*")
-    .single();
+  const { data, error } = await client.rpc("mark_user_challenge_started", {
+    target_assignment_id: assignmentId,
+  });
 
   if (error) throw error;
 
-  return data;
+  return Array.isArray(data) ? data[0] : data;
 }
 
 export async function completeAssignedChallenge(assignmentId, result) {
   const client = requireSupabase();
-  const { data, error } = await client
-    .from("user_challenges")
-    .update({
-      status: result.funded ? "completed" : "failed",
-      completed_at: new Date().toISOString(),
-      score: result.score,
-      earned_points: result.earnedPoints,
-      total_possible_points: result.totalPossiblePoints,
-      funded: result.funded,
-      scenario_results: result.scenarioResults,
-    })
-    .eq("id", assignmentId)
-    .select("*")
-    .single();
+  const { data, error } = await client.rpc("complete_user_challenge", {
+    target_assignment_id: assignmentId,
+    result_score: result.score,
+    result_earned_points: result.earnedPoints,
+    result_total_possible_points: result.totalPossiblePoints,
+    result_funded: result.funded,
+    result_scenario_results: result.scenarioResults,
+  });
 
   if (error) throw error;
 
-  return data;
+  return Array.isArray(data) ? data[0] : data;
 }

@@ -1,10 +1,14 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   AlertCircle,
+  Ban,
+  ChevronDown,
   CheckCircle2,
   Database,
   FileJson2,
+  HeartPulse,
   LogOut,
+  RefreshCw,
   Search,
   ShieldCheck,
   Upload,
@@ -12,9 +16,12 @@ import {
 } from "lucide-react";
 import {
   assignChallengeToUser,
+  checkChallengeSystemHealth,
   createChallengeForEvaluation,
+  listAssignmentsForUserChallenge,
   listDatabaseChallenges,
   listDatabaseEvaluationFiles,
+  revokeAssignedChallenge,
   saveEvaluationFileToDatabase,
   searchAssignmentsByEmail,
   searchProfiles,
@@ -33,6 +40,63 @@ function formatDate(value) {
   });
 }
 
+function formatDateTime(value) {
+  if (!value) return "Not set";
+
+  return new Date(value).toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+function getStatusBadgeClass(status) {
+  if (status === "completed") return "border-green/45 text-green";
+  if (status === "failed") return "border-red-300/45 text-red-200";
+  if (status === "revoked") return "border-white/20 text-white/45";
+  if (status === "active") return "border-yellow-200/45 text-yellow-100";
+
+  return "border-green/45 text-green";
+}
+
+function AssignmentScoreRows({ assignment }) {
+  const scenarioResults = assignment.scenario_results ?? [];
+
+  if (scenarioResults.length === 0) {
+    return (
+      <div className="mt-3 rounded-xl border border-white/10 bg-black/35 p-3 text-sm text-white/50">
+        No scenario results have been recorded for this assignment.
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-3 overflow-hidden rounded-xl border border-white/10">
+      {scenarioResults.map((result, index) => (
+        <div
+          key={`${assignment.id}-${result.id ?? index}`}
+          className="grid gap-2 border-t border-white/10 bg-black/35 p-3 text-sm first:border-t-0 md:grid-cols-[1fr_120px]"
+        >
+          <div>
+            <div className="font-bold text-green">
+              {result.title ?? `Scenario ${index + 1}`}
+            </div>
+            <div className="mt-1 text-xs leading-5 text-white/50">
+              Selected {result.selectedAction ?? "Not recorded"}. Best{" "}
+              {result.bestAction ?? "Not recorded"}.
+            </div>
+          </div>
+          <div className="text-left font-bold text-green md:text-right">
+            {result.points ?? 0}/{result.maxPoints ?? 0} pts
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function AdminConsole() {
   const [evaluationFiles, setEvaluationFiles] = useState([]);
   const [challenges, setChallenges] = useState([]);
@@ -41,12 +105,20 @@ export default function AdminConsole() {
   const [challengeName, setChallengeName] = useState("");
   const [userQuery, setUserQuery] = useState("");
   const [userResults, setUserResults] = useState([]);
+  const [userSearchLoading, setUserSearchLoading] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
   const [activeSection, setActiveSection] = useState("challenges");
+  const [assignmentHistory, setAssignmentHistory] = useState([]);
+  const [assignmentHistoryLoading, setAssignmentHistoryLoading] = useState(false);
+  const [repeatAssignmentConfirmed, setRepeatAssignmentConfirmed] = useState(false);
   const [assignmentLookupEmail, setAssignmentLookupEmail] = useState("");
   const [assignmentResults, setAssignmentResults] = useState([]);
   const [assignmentLookupLoading, setAssignmentLookupLoading] = useState(false);
   const [assignmentLookupSearched, setAssignmentLookupSearched] = useState(false);
+  const [expandedAssignmentIds, setExpandedAssignmentIds] = useState([]);
+  const [healthRows, setHealthRows] = useState([]);
+  const [healthLoading, setHealthLoading] = useState(false);
+  const [healthSearched, setHealthSearched] = useState(false);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState(null);
 
@@ -94,17 +166,22 @@ export default function AdminConsole() {
     async function runSearch() {
       if (userQuery.trim().length < 2) {
         setUserResults([]);
+        setUserSearchLoading(false);
         return;
       }
+
+      setUserSearchLoading(true);
 
       try {
         const results = await searchProfiles(userQuery);
 
         if (!cancelled) {
           setUserResults(results);
+          setUserSearchLoading(false);
         }
       } catch (error) {
         if (!cancelled) {
+          setUserSearchLoading(false);
           setMessage({
             type: "error",
             text:
@@ -123,6 +200,67 @@ export default function AdminConsole() {
       window.clearTimeout(timeoutId);
     };
   }, [userQuery]);
+
+  const refreshAssignmentHistory = useCallback(async () => {
+    if (!selectedChallenge?.id || !selectedUser?.id) {
+      setAssignmentHistory([]);
+      setRepeatAssignmentConfirmed(false);
+      return;
+    }
+
+    setAssignmentHistoryLoading(true);
+
+    try {
+      const history = await listAssignmentsForUserChallenge({
+        challengeId: selectedChallenge.id,
+        userId: selectedUser.id,
+      });
+
+      setAssignmentHistory(history);
+      setAssignmentHistoryLoading(false);
+      setRepeatAssignmentConfirmed(false);
+    } catch (error) {
+      setAssignmentHistoryLoading(false);
+      setMessage({
+        type: "error",
+        text:
+          error instanceof Error
+            ? error.message
+            : "Could not load assignment history.",
+      });
+    }
+  }, [selectedChallenge?.id, selectedUser?.id]);
+
+  useEffect(() => {
+    refreshAssignmentHistory();
+  }, [refreshAssignmentHistory]);
+
+  const loadHealth = useCallback(async () => {
+    setHealthLoading(true);
+    setHealthSearched(true);
+
+    try {
+      const rows = await checkChallengeSystemHealth();
+
+      setHealthRows(rows);
+      setHealthLoading(false);
+    } catch (error) {
+      setHealthLoading(false);
+      setMessage({
+        type: "error",
+        text:
+          error instanceof Error
+            ? error.message
+            : "Could not load challenge system health.",
+      });
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activeSection === "health" && !healthSearched) {
+      loadHealth();
+    }
+  }, [activeSection, healthSearched, loadHealth]);
 
   const logout = async () => {
     try {
@@ -201,6 +339,15 @@ export default function AdminConsole() {
       return;
     }
 
+    if (assignmentHistory.length > 0 && !repeatAssignmentConfirmed) {
+      setRepeatAssignmentConfirmed(true);
+      setMessage({
+        type: "warning",
+        text: `${selectedUser.email} already has ${assignmentHistory.length} assignment instance${assignmentHistory.length === 1 ? "" : "s"} for this challenge. Click Assign Another Instance to confirm.`,
+      });
+      return;
+    }
+
     try {
       const assignment = await assignChallengeToUser({
         challengeId: selectedChallenge.id,
@@ -211,9 +358,7 @@ export default function AdminConsole() {
         type: "success",
         text: `Assigned ${selectedChallenge.name} to ${selectedUser.email}. Code: ${assignment.assignment_code}.`,
       });
-      setUserQuery("");
-      setUserResults([]);
-      setSelectedUser(null);
+      await refreshAssignmentHistory();
     } catch (error) {
       setMessage({
         type: "error",
@@ -221,6 +366,31 @@ export default function AdminConsole() {
           error instanceof Error
             ? error.message
             : "Could not assign challenge.",
+      });
+    }
+  };
+
+  const handleRevokeAssignment = async (assignment) => {
+    try {
+      const revoked = await revokeAssignedChallenge(assignment.id);
+
+      setMessage({
+        type: "success",
+        text: `Revoked assignment ${revoked.assignment_code}.`,
+      });
+
+      if (assignmentLookupSearched) {
+        await handleAssignmentLookup();
+      }
+
+      await refreshAssignmentHistory();
+    } catch (error) {
+      setMessage({
+        type: "error",
+        text:
+          error instanceof Error
+            ? error.message
+            : "Could not revoke assignment.",
       });
     }
   };
@@ -241,6 +411,7 @@ export default function AdminConsole() {
       const results = await searchAssignmentsByEmail(assignmentLookupEmail);
 
       setAssignmentResults(results);
+      setExpandedAssignmentIds([]);
       setAssignmentLookupLoading(false);
     } catch (error) {
       setAssignmentLookupLoading(false);
@@ -252,6 +423,14 @@ export default function AdminConsole() {
             : "Could not search assignment details.",
       });
     }
+  };
+
+  const toggleExpandedAssignment = (assignmentId) => {
+    setExpandedAssignmentIds((currentIds) =>
+      currentIds.includes(assignmentId)
+        ? currentIds.filter((id) => id !== assignmentId)
+        : [...currentIds, assignmentId],
+    );
   };
 
   return (
@@ -323,6 +502,19 @@ export default function AdminConsole() {
                   <Search className="h-4 w-4" />
                   Assignment Lookup
                 </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveSection("health")}
+                  className={[
+                    "flex h-11 items-center gap-2 rounded-xl border px-4 text-left text-sm font-bold transition",
+                    activeSection === "health"
+                      ? "border-green bg-green text-black"
+                      : "border-white/10 bg-black/20 text-green hover:border-green/35 hover:bg-green/10",
+                  ].join(" ")}
+                >
+                  <HeartPulse className="h-4 w-4" />
+                  System Health
+                </button>
               </div>
 
               {message ? (
@@ -331,7 +523,9 @@ export default function AdminConsole() {
                     "mb-4 flex gap-2 rounded-2xl border px-3 py-2 text-sm leading-5",
                     message.type === "success"
                       ? "border-green/30 bg-green/10 text-green"
-                      : "border-red-300/30 bg-red-500/10 text-red-200",
+                      : message.type === "warning"
+                        ? "border-yellow-200/30 bg-yellow-300/10 text-yellow-100"
+                        : "border-red-300/30 bg-red-500/10 text-red-200",
                   ].join(" ")}
                 >
                   {message.type === "success" ? (
@@ -438,6 +632,18 @@ export default function AdminConsole() {
                       </label>
 
                       <div className="mt-3 grid gap-2">
+                        {userSearchLoading ? (
+                          <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-sm text-white/50">
+                            Searching users...
+                          </div>
+                        ) : null}
+                        {!userSearchLoading &&
+                        userQuery.trim().length >= 2 &&
+                        userResults.length === 0 ? (
+                          <div className="rounded-xl border border-dashed border-white/10 bg-white/5 px-3 py-3 text-sm text-white/45">
+                            No matching users found.
+                          </div>
+                        ) : null}
                         {userResults.map((user) => (
                           <button
                             key={user.id}
@@ -466,7 +672,9 @@ export default function AdminConsole() {
 
                       <Button className="mt-4 w-full" onClick={handleAssignChallenge}>
                         <UserPlus className="mr-2 h-5 w-5" />
-                        Assign Challenge
+                        {assignmentHistory.length > 0 && repeatAssignmentConfirmed
+                          ? "Assign Another Instance"
+                          : "Assign Challenge"}
                       </Button>
                     </div>
 
@@ -497,6 +705,123 @@ export default function AdminConsole() {
                       )}
                     </div>
                   </div>
+
+                  {selectedUser && selectedChallenge ? (
+                    <div className="mt-6 rounded-[1.5rem] border border-white/10 bg-black/45 p-5">
+                      <div className="mb-3 flex items-center justify-between gap-3">
+                        <div>
+                          <div className="text-xs font-bold uppercase tracking-[0.16em] text-green">
+                            Existing Assignment Instances
+                          </div>
+                          <h3 className="mt-1 font-display text-xl font-bold">
+                            {selectedUser.email}
+                          </h3>
+                        </div>
+                        <Badge>
+                          {assignmentHistoryLoading
+                            ? "Loading"
+                            : `${assignmentHistory.length} found`}
+                        </Badge>
+                      </div>
+
+                      {assignmentHistory.length === 0 && !assignmentHistoryLoading ? (
+                        <div className="rounded-xl border border-dashed border-white/10 bg-white/[0.04] p-4 text-sm text-white/50">
+                          No previous instances for this challenge and user.
+                        </div>
+                      ) : null}
+
+                      <div className="grid gap-3 md:grid-cols-2">
+                        {assignmentHistory.map((assignment) => (
+                          <div
+                            key={assignment.id}
+                            className="rounded-xl border border-white/10 bg-black/35 p-4"
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div>
+                                <div className="font-display text-xl font-black tracking-[0.12em] text-green">
+                                  {assignment.assignment_code}
+                                </div>
+                                <div className="mt-1 text-xs text-white/45">
+                                  Assigned {formatDateTime(assignment.assigned_at)}
+                                </div>
+                              </div>
+                              <Badge className={getStatusBadgeClass(assignment.status)}>
+                                {assignment.status}
+                              </Badge>
+                            </div>
+                            <div className="mt-3 text-xs leading-5 text-white/50">
+                              Assigned by{" "}
+                              {assignment.assignedByProfile?.email ??
+                                assignment.assigned_by ??
+                                "Not recorded"}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+              ) : activeSection === "health" ? (
+                <div>
+                  <div className="mb-3 flex flex-wrap gap-2">
+                    <Badge>System Health</Badge>
+                    <Badge>Database checks</Badge>
+                  </div>
+                  <h2 className="font-display text-3xl font-black sm:text-4xl">
+                    Verify challenge assignment infrastructure.
+                  </h2>
+                  <p className="mt-3 max-w-3xl text-sm leading-6 text-white/62">
+                    Confirm the live database supports repeated assignments,
+                    unique 9-digit codes, RPC workflows, and blocked direct
+                    player updates.
+                  </p>
+
+                  <div className="mt-6 flex flex-wrap gap-3">
+                    <Button onClick={loadHealth} disabled={healthLoading}>
+                      <RefreshCw className="mr-2 h-5 w-5" />
+                      {healthLoading ? "Checking" : "Refresh Checks"}
+                    </Button>
+                  </div>
+
+                  <div className="mt-6 grid gap-3 md:grid-cols-2">
+                    {healthRows.map((row) => (
+                      <div
+                        key={row.check_name}
+                        className={[
+                          "rounded-2xl border p-4",
+                          row.status === "ok"
+                            ? "border-green/25 bg-green/10"
+                            : "border-red-300/25 bg-red-500/10",
+                        ].join(" ")}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <div className="font-display text-lg font-bold">
+                              {row.check_name.replaceAll("_", " ")}
+                            </div>
+                            <div className="mt-2 text-sm leading-6 text-white/58">
+                              {row.details}
+                            </div>
+                          </div>
+                          <Badge
+                            className={
+                              row.status === "ok"
+                                ? "border-green/45 text-green"
+                                : "border-red-300/45 text-red-200"
+                            }
+                          >
+                            {row.status}
+                          </Badge>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {healthSearched && !healthLoading && healthRows.length === 0 ? (
+                    <div className="mt-6 rounded-2xl border border-dashed border-white/12 bg-black/20 p-5 text-sm leading-6 text-white/55">
+                      No health rows returned.
+                    </div>
+                  ) : null}
                 </div>
               ) : activeSection === "lookup" ? (
                 <div>
@@ -567,6 +892,10 @@ export default function AdminConsole() {
                         const challenge = assignment.challenges;
                         const evaluationFile = challenge?.evaluation_files;
                         const profile = assignment.profile;
+                        const expanded = expandedAssignmentIds.includes(assignment.id);
+                        const canRevoke =
+                          assignment.status === "assigned" ||
+                          assignment.status === "active";
 
                         return (
                           <div
@@ -582,7 +911,7 @@ export default function AdminConsole() {
                                   {profile?.email ?? assignment.user_id}
                                 </div>
                               </div>
-                              <Badge className="border-green/45 text-green">
+                              <Badge className={getStatusBadgeClass(assignment.status)}>
                                 {assignment.status}
                               </Badge>
                             </div>
@@ -627,6 +956,24 @@ export default function AdminConsole() {
                                     {evaluationFile?.question_count ?? "Not set"}
                                   </div>
                                 </div>
+                                <div className="rounded-lg border border-white/10 bg-black/50 p-3">
+                                  <div className="text-[11px] font-bold uppercase tracking-[0.12em] text-white/35">
+                                    Assigned By
+                                  </div>
+                                  <div className="mt-1 break-words text-sm font-bold text-green">
+                                    {assignment.assignedByProfile?.email ??
+                                      assignment.assigned_by ??
+                                      "Not recorded"}
+                                  </div>
+                                </div>
+                                <div className="rounded-lg border border-white/10 bg-black/50 p-3">
+                                  <div className="text-[11px] font-bold uppercase tracking-[0.12em] text-white/35">
+                                    Completed
+                                  </div>
+                                  <div className="mt-1 text-sm font-bold text-green">
+                                    {formatDate(assignment.completed_at)}
+                                  </div>
+                                </div>
                               </div>
                               <div className="mt-3 flex flex-wrap gap-2">
                                 <Badge>
@@ -639,6 +986,34 @@ export default function AdminConsole() {
                                   {assignment.funded ? "Funded" : "Not funded"}
                                 </Badge>
                               </div>
+                              <div className="mt-4 flex flex-wrap gap-2">
+                                <Button
+                                  className="h-9 px-4 text-xs"
+                                  variant="secondary"
+                                  onClick={() => toggleExpandedAssignment(assignment.id)}
+                                >
+                                  <ChevronDown
+                                    className={[
+                                      "mr-2 h-4 w-4 transition",
+                                      expanded ? "rotate-180" : "",
+                                    ].join(" ")}
+                                  />
+                                  {expanded ? "Hide Results" : "Show Results"}
+                                </Button>
+                                {canRevoke ? (
+                                  <Button
+                                    className="h-9 px-4 text-xs"
+                                    variant="danger"
+                                    onClick={() => handleRevokeAssignment(assignment)}
+                                  >
+                                    <Ban className="mr-2 h-4 w-4" />
+                                    Revoke
+                                  </Button>
+                                ) : null}
+                              </div>
+                              {expanded ? (
+                                <AssignmentScoreRows assignment={assignment} />
+                              ) : null}
                             </div>
                           </div>
                         );
