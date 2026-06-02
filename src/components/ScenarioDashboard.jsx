@@ -19,6 +19,7 @@ import { signOutOfApp } from "../lib/authSession";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
+import { Dialog, DialogContent } from "./ui/dialog";
 import { useEvaluationStore } from "../store/useEvaluationStore";
 
 const formatDate = (value) => {
@@ -63,6 +64,7 @@ function ChallengeScoreRows({ challenge }) {
 export default function ScenarioDashboard() {
   const [activeScreen, setActiveScreen] = useState("dashboard");
   const [expandedChallengeId, setExpandedChallengeId] = useState(null);
+  const [pendingChallengeStart, setPendingChallengeStart] = useState(null);
   const startEvaluation = useEvaluationStore((state) => state.startEvaluation);
   const resetEvaluation = useEvaluationStore((state) => state.resetEvaluation);
   const currentChallenge = useEvaluationStore((state) => state.currentChallenge);
@@ -142,6 +144,18 @@ export default function ScenarioDashboard() {
       window.location.assign("/");
     }
   };
+  const requestChallengeStart = (challengeId) => {
+    setPendingChallengeStart({ category: "All", challengeId });
+  };
+  const closeStartGate = () => {
+    setActiveScreen("dashboard");
+    setPendingChallengeStart(null);
+  };
+  const confirmChallengeStart = () => {
+    const pendingStart = pendingChallengeStart;
+    setPendingChallengeStart(null);
+    startEvaluation(pendingStart?.category ?? "All", pendingStart?.challengeId);
+  };
 
   return (
     <main className="h-dvh overflow-hidden bg-aurora text-green">
@@ -220,7 +234,12 @@ export default function ScenarioDashboard() {
             </div>
             <div className="flex shrink-0 flex-wrap gap-2">
               {hasCurrentChallenge ? (
-                <Button className="h-10 px-4 text-xs" onClick={() => startEvaluation("All")}>
+                <Button
+                  className="h-10 px-4 text-xs"
+                  onClick={() =>
+                    requestChallengeStart(currentChallenge?.id ?? activeChallenges[0]?.id)
+                  }
+                >
                   <Play className="mr-2 h-4 w-4" />
                   Start
                 </Button>
@@ -371,7 +390,7 @@ export default function ScenarioDashboard() {
                               </div>
                               <Button
                                 className="mt-4 h-10 w-full px-4 text-xs"
-                                onClick={() => startEvaluation("All", challenge.id)}
+                                onClick={() => requestChallengeStart(challenge.id)}
                               >
                                 <Play className="mr-2 h-4 w-4" />
                                 Continue Challenge
@@ -522,6 +541,40 @@ export default function ScenarioDashboard() {
         </div>
         </div>
       </section>
+      <Dialog open={Boolean(pendingChallengeStart)}>
+        <DialogContent className="w-[min(92vw,32rem)] overflow-hidden border-green/25 bg-black/95 p-0 shadow-[0_0_64px_rgba(0,255,136,0.16)]">
+          <div className="relative p-6 sm:p-7">
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-green/70 to-transparent" />
+            <div className="flex items-start gap-4">
+              <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl border border-green/30 bg-green/12 text-green">
+                <ShieldCheck className="h-6 w-6" />
+              </div>
+              <div className="min-w-0">
+                <Badge className="border-green/45 text-green">Challenge Start</Badge>
+                <h2 className="mt-4 font-display text-2xl font-black tracking-tight text-white">
+                  Placeholder message
+                </h2>
+                <p className="mt-3 text-sm leading-6 text-white/58">
+                  Are you ready?
+                </p>
+              </div>
+            </div>
+            <div className="mt-7 grid gap-3 sm:grid-cols-2">
+              <Button className="h-11 text-xs" onClick={confirmChallengeStart}>
+                <Play className="mr-2 h-4 w-4" />
+                Yes
+              </Button>
+              <Button
+                className="h-11 text-xs"
+                variant="secondary"
+                onClick={closeStartGate}
+              >
+                No
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </main>
   );
 }
