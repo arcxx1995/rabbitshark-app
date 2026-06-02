@@ -7,7 +7,7 @@ import {
   LogOut,
   Search,
   ShieldCheck,
-  Upload,
+  Sparkles,
   UserPlus,
 } from "lucide-react";
 import {
@@ -22,6 +22,7 @@ import {
 import { signOutOfApp } from "../lib/authSession";
 import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
+import { generateEvaluationFile } from "./evaluationGenerator";
 
 function formatDate(value) {
   if (!value) return "Not set";
@@ -38,6 +39,7 @@ export default function AdminConsole() {
   const [challenges, setChallenges] = useState([]);
   const [selectedEvaluationId, setSelectedEvaluationId] = useState("");
   const [selectedChallengeId, setSelectedChallengeId] = useState("");
+  const [generationTitle, setGenerationTitle] = useState("");
   const [challengeName, setChallengeName] = useState("");
   const [userQuery, setUserQuery] = useState("");
   const [userResults, setUserResults] = useState([]);
@@ -47,6 +49,7 @@ export default function AdminConsole() {
   const [assignmentResults, setAssignmentResults] = useState([]);
   const [assignmentLookupLoading, setAssignmentLookupLoading] = useState(false);
   const [assignmentLookupSearched, setAssignmentLookupSearched] = useState(false);
+  const [generatingEvaluation, setGeneratingEvaluation] = useState(false);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState(null);
 
@@ -134,29 +137,32 @@ export default function AdminConsole() {
     }
   };
 
-  const handleUpload = async (event) => {
-    const [file] = event.target.files;
-    event.target.value = "";
-
-    if (!file) return;
-
+  const handleGenerateEvaluation = async () => {
+    setGeneratingEvaluation(true);
     try {
-      const content = await file.text();
-      const parsedEvaluation = JSON.parse(content);
-      const savedFile = await saveEvaluationFileToDatabase(parsedEvaluation);
+      const generatedEvaluation = generateEvaluationFile({
+        title: generationTitle,
+      });
+      const savedFile = await saveEvaluationFileToDatabase(generatedEvaluation);
 
       setMessage({
         type: "success",
-        text: `Saved ${savedFile.evaluation.title} to the database.`,
+        text: `Generated and saved ${savedFile.evaluation.title} to the database.`,
       });
       await loadAdminData();
       setSelectedEvaluationId(savedFile.id);
       setChallengeName(savedFile.evaluation.title);
+      setGenerationTitle("");
     } catch (error) {
       setMessage({
         type: "error",
-        text: error instanceof Error ? error.message : "Could not save JSON file.",
+        text:
+          error instanceof Error
+            ? error.message
+            : "Could not generate evaluation file.",
       });
+    } finally {
+      setGeneratingEvaluation(false);
     }
   };
 
@@ -656,31 +662,49 @@ export default function AdminConsole() {
                           <Badge>Evaluation to challenge</Badge>
                         </div>
                         <h2 className="font-display text-3xl font-black sm:text-4xl">
-                          Create a challenge from an uploaded file.
+                          Generate a 25-question evaluation.
                         </h2>
                         <p className="mt-3 max-w-3xl text-sm leading-6 text-white/62">
-                          Uploaded evaluation files live in Supabase. A challenge
-                          points to one evaluation file, then that challenge can be
-                          assigned to a specific user.
+                          Generate Poker Engine-ready evaluation JSON, save it to
+                          Supabase, then create a challenge from the selected
+                          generated file.
                         </p>
                       </div>
 
                       <div className="min-h-[282px] rounded-[1.5rem] border border-white/10 bg-black/60 p-5">
-                        <label className="mb-4 flex min-h-24 cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-green/35 bg-green/10 px-4 py-5 text-center transition hover:bg-green/15">
-                          <Upload className="mb-2 h-6 w-6 text-green" />
+                        <div className="mb-4 rounded-2xl border border-dashed border-green/35 bg-green/10 px-4 py-5">
+                          <Sparkles className="mb-3 h-6 w-6 text-green" />
                           <span className="text-sm font-bold uppercase tracking-[0.14em] text-green">
-                            Upload Evaluation JSON
+                            Evaluation Generator
                           </span>
-                          <span className="mt-1 text-xs leading-5 text-white/48">
-                            Save the evaluation file, then create a challenge from it.
-                          </span>
-                          <input
-                            className="sr-only"
-                            type="file"
-                            accept="application/json,.json"
-                            onChange={handleUpload}
-                          />
-                        </label>
+                          <p className="mt-2 text-xs leading-5 text-white/48">
+                            Creates 25 complete table scenarios from validated
+                            Rabbitshark templates and stores the JSON in the database.
+                          </p>
+                          <label className="mt-4 block">
+                            <span className="text-xs font-bold uppercase tracking-[0.14em] text-white/58">
+                              Evaluation Title
+                            </span>
+                            <input
+                              className="mt-2 h-12 w-full rounded-xl border border-white/10 bg-black/40 px-4 text-sm text-green outline-none placeholder:text-white/35 focus:border-green"
+                              value={generationTitle}
+                              onChange={(event) =>
+                                setGenerationTitle(event.target.value)
+                              }
+                              placeholder="Rabbitshark 25 Question Evaluation"
+                            />
+                          </label>
+                          <Button
+                            className="mt-4 w-full"
+                            onClick={handleGenerateEvaluation}
+                            disabled={generatingEvaluation}
+                          >
+                            <Sparkles className="mr-2 h-5 w-5" />
+                            {generatingEvaluation
+                              ? "Generating Evaluation"
+                              : "Generate Evaluation"}
+                          </Button>
+                        </div>
 
                         <label className="block">
                           <span className="text-xs font-bold uppercase tracking-[0.14em] text-white/58">
