@@ -9,6 +9,7 @@ export default function ActionPanel({
   decisionResult,
   onSelectAction,
   onContinue,
+  advancing = false,
   compact = false,
 }) {
   if (compact) {
@@ -36,19 +37,14 @@ export default function ActionPanel({
           <div className="grid gap-3 rounded-xl border border-green/25 bg-black/70 p-3 sm:grid-cols-[1fr_auto] sm:items-center">
             <div className="min-w-0">
               <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-green">
-                {decisionResult.timedOut ? "Timed Out" : "Decision Saved"}
+                {decisionResult.timedOut ? "Timed Out" : "Decision Locked"}
               </div>
               <div className="mt-1 text-xs font-semibold leading-5 text-white/72">
-                {decisionResult.selectedAction} scored {decisionResult.points}/
-                {decisionResult.maxPoints} pts. Best action:{" "}
-                {decisionResult.bestAction}.
-              </div>
-              <div className="mt-1 line-clamp-2 text-[11px] leading-5 text-white/50">
-                {decisionResult.feedback}
+                {decisionResult.selectedAction}
               </div>
             </div>
-            <Button className="h-10 px-4 text-xs" onClick={onContinue}>
-              Confirm
+            <Button className="h-10 px-4 text-xs" disabled={advancing} onClick={onContinue}>
+              {advancing ? "Advancing" : "Confirm"}
             </Button>
           </div>
         ) : (
@@ -98,17 +94,13 @@ export default function ActionPanel({
         {decisionResult ? (
           <div className="rounded-2xl border border-green/25 bg-black/24 p-4">
             <div className="text-xs font-bold uppercase tracking-[0.18em] text-green">
-              {decisionResult.timedOut ? "Timed Out" : "Decision Saved"}
+              {decisionResult.timedOut ? "Timed Out" : "Decision Locked"}
             </div>
             <p className="mt-2 text-sm leading-6 text-white/72">
-              {decisionResult.selectedAction} scored {decisionResult.points}/
-              {decisionResult.maxPoints} pts. Best action: {decisionResult.bestAction}.
+              {decisionResult.selectedAction}
             </p>
-            <p className="mt-2 text-sm leading-6 text-white/50">
-              {decisionResult.feedback}
-            </p>
-            <Button className="mt-4" onClick={onContinue}>
-              Confirm
+            <Button className="mt-4" disabled={advancing} onClick={onContinue}>
+              {advancing ? "Advancing" : "Confirm"}
             </Button>
           </div>
         ) : (

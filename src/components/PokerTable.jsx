@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowLeft, Timer } from "lucide-react";
 import ActionPanel from "./ActionPanel";
@@ -106,6 +106,35 @@ function parseActionAmount(action) {
   if (!numberMatches?.length) return null;
 
   return `${numberMatches[numberMatches.length - 1]} BB`;
+}
+
+function parsePotAmount(pot) {
+  const value = Number.parseFloat(String(pot).replace(/[^\d.]/g, ""));
+
+  return Number.isFinite(value) ? value : null;
+}
+
+function getSelectedActionDisplay(option, scenario) {
+  if (!option) return null;
+
+  const label = option.label ?? option.type ?? "Action";
+  const numericMatch = label.match(/\d+(?:\.\d+)?/);
+  const percentMatch = label.match(/(\d+(?:\.\d+)?)\s*%/);
+  const potAmount = parsePotAmount(scenario.pot);
+
+  if (percentMatch && potAmount !== null) {
+    const amount = (potAmount * Number.parseFloat(percentMatch[1])) / 100;
+    const rounded = Number.isInteger(amount) ? amount : amount.toFixed(1);
+
+    return `${rounded} BB`;
+  }
+
+  if (numericMatch) {
+    const suffix = /\bx\b/i.test(label) ? "x" : " BB";
+    return `${numericMatch[0]}${suffix}`;
+  }
+
+  return label;
 }
 
 function getActionActor(action, seats) {
@@ -272,6 +301,36 @@ function AnimatedChipMovement({ animation }) {
   });
 }
 
+function SelectedActionMovement({ action, heroPosition, tableFormat, scenario }) {
+  if (!action || !heroPosition) return null;
+
+  const target = getBetChipPosition(tableFormat, heroPosition);
+  const amount = getSelectedActionDisplay(action, scenario);
+
+  return (
+    <motion.div
+      key={`selected-action-${action.label}`}
+      className="pointer-events-none absolute z-40 -translate-x-1/2 -translate-y-1/2"
+      initial={{
+        left: `${heroPosition.x}%`,
+        top: `${heroPosition.y}%`,
+        scale: 0.86,
+        opacity: 0,
+      }}
+      animate={{
+        left: `${target.x}%`,
+        top: `${target.y}%`,
+        scale: [0.86, 1.04, 1],
+        opacity: 1,
+      }}
+      exit={{ opacity: 0, scale: 0.92 }}
+      transition={{ duration: 0.72, ease: "easeInOut" }}
+    >
+      <ChipMarker amount={amount} />
+    </motion.div>
+  );
+}
+
 export default function PokerTable() {
   const scenario = useEvaluationStore((state) => state.currentScenario);
   const currentChallenge = useEvaluationStore((state) => state.currentChallenge);
@@ -289,12 +348,25 @@ export default function PokerTable() {
   const selectAction = useEvaluationStore((state) => state.selectAction);
   const nextScenario = useEvaluationStore((state) => state.nextScenario);
   const goDashboard = useEvaluationStore((state) => state.goDashboard);
+  const [isAdvancingQuestion, setIsAdvancingQuestion] = useState(false);
 
   const tableView = buildTableViewModel(scenario, animationStep);
   const isDecisionReady = tableView.decisionReady;
   const questionCount = currentChallenge?.evaluation?.questionCount ?? scenarios.length;
   const progressLabel = `${Math.min(currentScenarioIndex + 1, questionCount)}/${questionCount}`;
   const timerDanger = decisionSecondsRemaining <= 8;
+  const heroIndex = tableView.seats.findIndex((player) => player.isHero);
+  const heroPosition = heroIndex >= 0 ? tableView.positions[heroIndex] : null;
+
+  const handleConfirmAdvance = () => {
+    if (isAdvancingQuestion) return;
+
+    setIsAdvancingQuestion(true);
+    window.setTimeout(async () => {
+      await nextScenario();
+      setIsAdvancingQuestion(false);
+    }, 980);
+  };
 
   useEffect(() => {
     if (isDecisionReady || selectedAction) return undefined;
@@ -366,7 +438,16 @@ export default function PokerTable() {
 
         <div className="grid min-h-0 flex-1 gap-3 xl:grid-cols-[1fr_360px]">
           <section className="grid min-h-0 place-items-center">
-            <div className="relative aspect-[16/10] max-h-[calc(100dvh-72px)] w-full max-w-[1280px] overflow-hidden rounded-[1.8rem] border border-white/10 bg-black/60 shadow-2xl">
+            <motion.div
+              key={scenario.id}
+              className="relative aspect-[16/10] max-h-[calc(100dvh-72px)] w-full max-w-[1280px] overflow-hidden rounded-[1.8rem] border border-white/10 bg-black/60 shadow-2xl"
+              initial={{ opacity: 0, scale: 0.985 }}
+              animate={{
+                opacity: isAdvancingQuestion ? 0.62 : 1,
+                scale: isAdvancingQuestion ? 0.992 : 1,
+              }}
+              transition={{ duration: 0.34, ease: "easeInOut" }}
+            >
               <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_15%,rgba(0,255,171,.16),transparent_32%)]" />
               <motion.div
                 className="absolute bottom-[25%] left-[9.2%] right-[9.2%] top-[11.8%] rounded-full border border-green/25 table-surface-texture shadow-table ring-[16px] ring-white/5"
@@ -430,6 +511,17 @@ export default function PokerTable() {
                 />
               </AnimatePresence>
 
+              <AnimatePresence>
+                {isAdvancingQuestion ? (
+                  <SelectedActionMovement
+                    action={selectedAction}
+                    heroPosition={heroPosition}
+                    tableFormat={scenario.tableFormat}
+                    scenario={scenario}
+                  />
+                ) : null}
+              </AnimatePresence>
+
                 {tableView.seats.map((player, index) => (
                   <PlayerSeat
                     key={`${player.position}-${player.name}`}
@@ -451,11 +543,12 @@ export default function PokerTable() {
                   selectedAction={selectedAction}
                   decisionResult={decisionResult}
                   onSelectAction={selectAction}
-                  onContinue={nextScenario}
+                  onContinue={handleConfirmAdvance}
+                  advancing={isAdvancingQuestion}
                   compact
                 />
               </div>
-            </div>
+            </motion.div>
           </section>
 
           <aside className="hidden min-h-0 space-y-3 overflow-hidden xl:block">
