@@ -6,6 +6,7 @@ The same setup is also available in the Supabase migrations:
 - `supabase/migrations/20260602000000_challenge_system.sql`
 - `supabase/migrations/20260602010000_allow_repeated_challenge_assignments.sql`
 - `supabase/migrations/20260602020000_assignment_admin_workflow.sql`
+- `supabase/migrations/20260602030000_timed_challenge_progress.sql`
 
 ## Tables And Profiles
 
@@ -384,3 +385,31 @@ The deployed app uses RPCs for assignment and progress writes:
 
 The latest migration also replaces direct player update access with a blocking
 RLS policy. Player progress writes should go through the RPC layer.
+
+## Stored Challenge Outcomes
+
+Each assigned challenge instance stores its own outcome on the same
+`user_challenges` row. When a user completes an assignment, the database row is
+updated with `status`, `completed_at`, `score`, `earned_points`,
+`total_possible_points`, `funded`, and `scenario_results`.
+
+The player app loads active rows from `assigned` and `active` statuses, and past
+outcomes from `completed` and `failed` statuses. This means each user's challenge
+history is restored from Supabase instead of depending only on browser storage.
+
+## Timed Progress And Resume
+
+Active assignments also store in-progress challenge state:
+
+- `current_question_index`
+- `progress_results`
+- `decision_time_limit_seconds`
+- `last_progress_at`
+
+The default decision timer is 25 seconds. The timer starts only after the hand
+history animation finishes and the decision buttons are enabled, so users are not
+penalized while the poker engine is revealing pre-decision action.
+
+Every answered or timed-out scenario is saved through
+`record_user_challenge_progress()`. If the player reloads or returns later, the
+challenge resumes from the next unanswered scenario using the stored progress.

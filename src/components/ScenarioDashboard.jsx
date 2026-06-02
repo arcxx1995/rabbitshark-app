@@ -78,6 +78,10 @@ export default function ScenarioDashboard() {
     state.getFundedThresholdPercent(),
   );
   const completedCount = stats.completedScenarios.length;
+  const activeQuestionCount =
+    currentChallenge?.evaluation?.questionCount ??
+    currentChallenge?.evaluation?.questions?.length ??
+    25;
   const activeChallenges =
     storedActiveChallenges.length > 0
       ? storedActiveChallenges
@@ -93,7 +97,7 @@ export default function ScenarioDashboard() {
     ? "No active challenge"
     : currentChallenge && completedCount === 0
       ? currentChallenge.status
-      : currentChallenge && completedCount === 25
+      : currentChallenge && completedCount === activeQuestionCount
         ? "Complete"
         : currentChallenge
           ? "In progress"
@@ -309,7 +313,15 @@ export default function ScenarioDashboard() {
                           {activeChallenges.map((challenge, index) => {
                             const isCurrentChallenge =
                               currentChallenge?.id === challenge.id;
-                            const progressCount = isCurrentChallenge ? completedCount : 0;
+                            const questionCount =
+                              challenge.evaluation?.questionCount ??
+                              challenge.evaluation?.questions?.length ??
+                              25;
+                            const progressCount = isCurrentChallenge
+                              ? completedCount
+                              : challenge.currentQuestionIndex ??
+                                challenge.progressResults?.length ??
+                                0;
                             const currentPoints = isCurrentChallenge
                               ? stats.totalScore
                               : challenge.earnedPoints;
@@ -343,7 +355,7 @@ export default function ScenarioDashboard() {
                               </div>
                               <div className="mt-4 grid grid-cols-3 gap-2">
                                 {[
-                                  ["Progress", `${progressCount}/25`],
+                                  ["Progress", `${progressCount}/${questionCount}`],
                                   ["Current", `${currentPoints} pts`],
                                   ["Target", `${fundedThresholdPoints} pts`],
                                 ].map(([label, value]) => (
@@ -481,7 +493,9 @@ export default function ScenarioDashboard() {
                 <CardContent className="space-y-2">
                   <div className="flex items-center justify-between rounded-lg bg-black/20 px-3 py-2">
                     <span className="text-sm text-white/58">Challenge</span>
-                    <span className="font-display text-sm font-bold">25 questions</span>
+                    <span className="font-display text-sm font-bold">
+                      {activeQuestionCount} questions
+                    </span>
                   </div>
                   <div className="flex items-center justify-between rounded-lg bg-black/20 px-3 py-2">
                     <span className="text-sm text-white/58">Funded</span>

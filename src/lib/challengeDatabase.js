@@ -29,6 +29,16 @@ function mapAssignedChallenge(row) {
   }
 
   const evaluation = mapEvaluationRow(evaluationRow).evaluation;
+  const status =
+    row.status === "active"
+      ? "In progress"
+      : row.status === "completed"
+        ? "Funded"
+        : row.status === "failed"
+          ? "Failed"
+          : row.status === "revoked"
+            ? "Revoked"
+            : "Ready";
 
   return {
     id: row.id,
@@ -37,15 +47,19 @@ function mapAssignedChallenge(row) {
     challengeId: row.challenge_id,
     title: challenge.name,
     evaluationId: evaluation.id,
-    status: row.status === "active" ? "In progress" : "Ready",
+    status,
     purchasedAt: row.assigned_at,
     startedAt: row.started_at,
     completedAt: row.completed_at,
     score: row.score ?? 0,
     earnedPoints: row.earned_points ?? 0,
-    totalPossiblePoints: evaluation.totalPossiblePoints,
+    totalPossiblePoints: row.total_possible_points ?? evaluation.totalPossiblePoints,
     funded: Boolean(row.funded),
     scenarioResults: row.scenario_results ?? [],
+    progressResults: row.progress_results ?? row.scenario_results ?? [],
+    currentQuestionIndex: row.current_question_index ?? 0,
+    decisionTimeLimitSeconds: row.decision_time_limit_seconds ?? 25,
+    lastProgressAt: row.last_progress_at,
     dbBacked: true,
     evaluation,
   };
@@ -338,10 +352,50 @@ export async function getAssignedChallengesForCurrentUser() {
   return (data ?? []).map(mapAssignedChallenge);
 }
 
+export async function getPastChallengesForCurrentUser() {
+  const client = requireSupabase();
+  const { data: userData, error: userError } = await client.auth.getUser();
+
+  if (userError) throw userError;
+  if (!userData.user?.id) return [];
+
+  const { data, error } = await client
+    .from("user_challenges")
+    .select(
+      `
+        *,
+        challenges (
+          *,
+          evaluation_files (*)
+        )
+      `,
+    )
+    .eq("user_id", userData.user.id)
+    .in("status", ["completed", "failed"])
+    .order("completed_at", { ascending: false, nullsFirst: false });
+
+  if (error) throw error;
+
+  return (data ?? []).map(mapAssignedChallenge);
+}
+
 export async function markAssignedChallengeStarted(assignmentId) {
   const client = requireSupabase();
   const { data, error } = await client.rpc("mark_user_challenge_started", {
     target_assignment_id: assignmentId,
+  });
+
+  if (error) throw error;
+
+  return Array.isArray(data) ? data[0] : data;
+}
+
+export async function recordAssignedChallengeProgress(assignmentId, result) {
+  const client = requireSupabase();
+  const { data, error } = await client.rpc("record_user_challenge_progress", {
+    target_assignment_id: assignmentId,
+    next_question_index: result.nextQuestionIndex,
+    progress_scenario_results: result.scenarioResults,
   });
 
   if (error) throw error;

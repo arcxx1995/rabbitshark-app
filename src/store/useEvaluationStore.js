@@ -9,9 +9,13 @@ import {
 import {
   completeAssignedChallenge,
   getAssignedChallengesForCurrentUser,
+  getPastChallengesForCurrentUser,
   markAssignedChallengeStarted,
+  recordAssignedChallengeProgress,
 } from "../lib/challengeDatabase";
 import { getBestOption, getGrade } from "../lib/utils";
+
+const DEFAULT_DECISION_TIME_LIMIT_SECONDS = 25;
 
 const initialStats = {
   totalScore: 0,
@@ -38,6 +42,9 @@ const createChallenge = (evaluation) => ({
   totalPossiblePoints: evaluation.totalPossiblePoints,
   funded: false,
   scenarioResults: [],
+  progressResults: [],
+  currentQuestionIndex: 0,
+  decisionTimeLimitSeconds: DEFAULT_DECISION_TIME_LIMIT_SECONDS,
 });
 
 const getScenarioPool = (category, scenarios) => {
@@ -46,6 +53,33 @@ const getScenarioPool = (category, scenarios) => {
   return scenarios.filter((scenario) => {
     return scenario.category === category || scenario.street === category;
   });
+};
+
+const createStatsFromResults = (results = []) => ({
+  totalScore: roundScore(
+    results.reduce((total, scenario) => total + (scenario.points ?? 0), 0),
+  ),
+  completedScenarios: results,
+});
+
+const getCompletedEntry = (scenario, option, timedOut = false) => {
+  const maxPoints = scenario.points ?? 100;
+  const earnedPoints = timedOut ? 0 : roundScore((maxPoints * option.points) / 100);
+
+  return {
+    id: scenario.id,
+    title: scenario.title,
+    category: scenario.category,
+    selectedAction: timedOut ? "Timed out" : option.label,
+    actionScore: timedOut ? 0 : option.points,
+    points: earnedPoints,
+    maxPoints,
+    bestAction: getBestOption(scenario.options).label,
+    feedback: timedOut
+      ? "No action was selected before the decision timer expired."
+      : option.feedback,
+    timedOut,
+  };
 };
 
 export const useEvaluationStore = create(
@@ -61,6 +95,9 @@ export const useEvaluationStore = create(
   currentStreet: initialEvaluation.questions[0].street,
   animationStep: 0,
   selectedAction: null,
+  decisionResult: null,
+  decisionSecondsRemaining: DEFAULT_DECISION_TIME_LIMIT_SECONDS,
+  decisionTimerRunning: false,
   feedbackVisible: false,
   hasPurchasedChallenge: false,
   currentChallenge: null,
@@ -73,24 +110,44 @@ export const useEvaluationStore = create(
     set({ isLoadingData: true });
 
     try {
-      const assignedChallenges = await getAssignedChallengesForCurrentUser();
+      const [assignedChallenges, pastDatabaseChallenges] = await Promise.all([
+        getAssignedChallengesForCurrentUser(),
+        getPastChallengesForCurrentUser(),
+      ]);
 
       if (assignedChallenges.length > 0) {
         const currentChallenge = assignedChallenges[0];
         const activeEvaluation = currentChallenge.evaluation;
         const scenarios = activeEvaluation.questions;
+        const restoredResults =
+          currentChallenge.progressResults?.length > 0
+            ? currentChallenge.progressResults
+            : currentChallenge.scenarioResults ?? [];
+        const restoredStats = createStatsFromResults(restoredResults);
+        const restoredScenarioIndex = Math.min(
+          currentChallenge.currentQuestionIndex ?? restoredResults.length,
+          Math.max(scenarios.length - 1, 0),
+        );
 
         set({
           evaluations: getEvaluationFiles(),
           activeEvaluation,
           scenarios,
           scenarioCategories: getScenarioCategories(scenarios),
-          currentScenario: scenarios[0],
-          currentStreet: scenarios[0].street,
+          currentScenario: scenarios[restoredScenarioIndex] ?? scenarios[0],
+          currentScenarioIndex: restoredScenarioIndex,
+          currentStreet: (scenarios[restoredScenarioIndex] ?? scenarios[0]).street,
           hasPurchasedChallenge: true,
           currentChallenge,
           activeChallenges: assignedChallenges,
+          pastChallenges: pastDatabaseChallenges,
+          stats: restoredStats,
           selectedAction: null,
+          decisionResult: null,
+          decisionSecondsRemaining:
+            currentChallenge.decisionTimeLimitSeconds ??
+            DEFAULT_DECISION_TIME_LIMIT_SECONDS,
+          decisionTimerRunning: false,
           feedbackVisible: false,
           isLoadingData: false,
         });
@@ -110,7 +167,11 @@ export const useEvaluationStore = create(
         hasPurchasedChallenge: false,
         currentChallenge: null,
         activeChallenges: [],
+        pastChallenges: pastDatabaseChallenges,
         selectedAction: null,
+        decisionResult: null,
+        decisionSecondsRemaining: DEFAULT_DECISION_TIME_LIMIT_SECONDS,
+        decisionTimerRunning: false,
         feedbackVisible: false,
         isLoadingData: false,
       });
@@ -149,15 +210,26 @@ export const useEvaluationStore = create(
     const scenarios = activeEvaluation.questions;
     const selectedCategory = category ?? get().selectedCategory;
     const pool = getScenarioPool(selectedCategory, scenarios);
-    const firstScenario = pool[0] ?? scenarios[0];
+    const resumedResults =
+      currentChallenge.progressResults?.length > 0
+        ? currentChallenge.progressResults
+        : currentChallenge.scenarioResults ?? [];
+    const resumeIndex = Math.min(
+      currentChallenge.currentQuestionIndex ?? resumedResults.length,
+      Math.max(pool.length - 1, 0),
+    );
+    const firstScenario = pool[resumeIndex] ?? pool[0] ?? scenarios[0];
+    const nextStats = createStatsFromResults(resumedResults);
 
     const nextChallenge = {
       ...currentChallenge,
       status: "In progress",
       startedAt: currentChallenge.startedAt ?? new Date().toISOString(),
-      score: 0,
-      earnedPoints: 0,
+      score: currentChallenge.score ?? 0,
+      earnedPoints: nextStats.totalScore,
       funded: false,
+      progressResults: resumedResults,
+      currentQuestionIndex: resumedResults.length,
     };
 
     if (nextChallenge.dbBacked && nextChallenge.assignmentId) {
@@ -174,13 +246,18 @@ export const useEvaluationStore = create(
       scenarioCategories: getScenarioCategories(scenarios),
       selectedCategory,
       mode: "table",
-      currentScenarioIndex: 0,
+      currentScenarioIndex: resumeIndex,
       currentScenario: firstScenario,
       currentStreet: firstScenario.street,
       animationStep: 0,
       selectedAction: null,
+      decisionResult: null,
       feedbackVisible: false,
-      stats: initialStats,
+      decisionSecondsRemaining:
+        nextChallenge.decisionTimeLimitSeconds ??
+        DEFAULT_DECISION_TIME_LIMIT_SECONDS,
+      decisionTimerRunning: false,
+      stats: nextStats,
       currentChallenge: nextChallenge,
       activeChallenges: activeChallenges.map((challenge) =>
         challenge.id === nextChallenge.id ? nextChallenge : challenge,
@@ -212,6 +289,8 @@ export const useEvaluationStore = create(
       currentStreet: scenario.street,
       animationStep: 0,
       selectedAction: null,
+      decisionResult: null,
+      decisionTimerRunning: false,
       feedbackVisible: false,
     });
   },
@@ -222,39 +301,102 @@ export const useEvaluationStore = create(
 
     if (animationStep < maxStep) {
       set({ animationStep: animationStep + 1 });
+      return;
     }
+
+    set({
+      decisionTimerRunning: true,
+      decisionSecondsRemaining:
+        get().currentChallenge?.decisionTimeLimitSeconds ??
+        DEFAULT_DECISION_TIME_LIMIT_SECONDS,
+    });
   },
 
-  selectAction: async (option) => {
+  startDecisionTimer: () => {
+    const { selectedAction, decisionResult, decisionTimerRunning } = get();
+    if (selectedAction || decisionResult || decisionTimerRunning) return;
+
+    set({
+      decisionTimerRunning: true,
+      decisionSecondsRemaining:
+        get().currentChallenge?.decisionTimeLimitSeconds ??
+        DEFAULT_DECISION_TIME_LIMIT_SECONDS,
+    });
+  },
+
+  tickDecisionTimer: async () => {
+    const {
+      decisionSecondsRemaining,
+      decisionTimerRunning,
+      decisionResult,
+      selectedAction,
+    } = get();
+
+    if (!decisionTimerRunning || decisionResult || selectedAction) return;
+
+    if (decisionSecondsRemaining <= 1) {
+      set({ decisionSecondsRemaining: 0, decisionTimerRunning: false });
+      await get().selectAction(null, { timedOut: true });
+      return;
+    }
+
+    set({ decisionSecondsRemaining: decisionSecondsRemaining - 1 });
+  },
+
+  selectAction: async (option, config = {}) => {
     const { currentScenario, stats } = get();
-    const maxPoints = currentScenario.points ?? 100;
-    const earnedPoints = roundScore((maxPoints * option.points) / 100);
     const alreadyCompleted = stats.completedScenarios.some(
       (completed) => completed.id === currentScenario.id,
     );
-    const completedEntry = {
-      id: currentScenario.id,
-      title: currentScenario.title,
-      category: currentScenario.category,
-      selectedAction: option.label,
-      actionScore: option.points,
-      points: earnedPoints,
-      maxPoints,
-      bestAction: getBestOption(currentScenario.options).label,
+    const selectedOption = option ?? getBestOption(currentScenario.options);
+    const completedEntry = getCompletedEntry(
+      currentScenario,
+      selectedOption,
+      Boolean(config.timedOut),
+    );
+    const completedScenarios = alreadyCompleted
+      ? stats.completedScenarios
+      : [...stats.completedScenarios, completedEntry];
+    const nextStats = {
+      totalScore: roundScore(
+        completedScenarios.reduce((total, scenario) => total + scenario.points, 0),
+      ),
+      completedScenarios,
     };
+    const nextChallenge = get().currentChallenge
+      ? {
+          ...get().currentChallenge,
+          earnedPoints: nextStats.totalScore,
+          progressResults: completedScenarios,
+          scenarioResults: completedScenarios,
+          currentQuestionIndex: completedScenarios.length,
+        }
+      : null;
 
     set({
-      selectedAction: option,
-      feedbackVisible: false,
-      stats: alreadyCompleted
-        ? stats
-        : {
-            totalScore: roundScore(stats.totalScore + earnedPoints),
-            completedScenarios: [...stats.completedScenarios, completedEntry],
-          },
+      selectedAction: config.timedOut ? null : selectedOption,
+      decisionResult: completedEntry,
+      feedbackVisible: true,
+      decisionTimerRunning: false,
+      stats: nextStats,
+      currentChallenge: nextChallenge,
+      activeChallenges: nextChallenge
+        ? get().activeChallenges.map((challenge) =>
+            challenge.id === nextChallenge.id ? nextChallenge : challenge,
+          )
+        : get().activeChallenges,
     });
 
-    await get().nextScenario();
+    if (nextChallenge?.dbBacked && nextChallenge.assignmentId) {
+      try {
+        await recordAssignedChallengeProgress(nextChallenge.assignmentId, {
+          nextQuestionIndex: completedScenarios.length,
+          scenarioResults: completedScenarios,
+        });
+      } catch (error) {
+        console.error("Could not save assigned challenge progress.", error);
+      }
+    }
   },
 
   hideFeedback: () => {
@@ -321,6 +463,11 @@ export const useEvaluationStore = create(
       currentStreet: next.street,
       animationStep: 0,
       selectedAction: null,
+      decisionResult: null,
+      decisionSecondsRemaining:
+        get().currentChallenge?.decisionTimeLimitSeconds ??
+        DEFAULT_DECISION_TIME_LIMIT_SECONDS,
+      decisionTimerRunning: false,
       feedbackVisible: false,
     });
   },
@@ -330,6 +477,8 @@ export const useEvaluationStore = create(
       mode: "dashboard",
       feedbackVisible: false,
       selectedAction: null,
+      decisionResult: null,
+      decisionTimerRunning: false,
     });
   },
 

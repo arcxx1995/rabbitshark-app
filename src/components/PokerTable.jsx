@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Timer } from "lucide-react";
 import ActionPanel from "./ActionPanel";
 import PlayerSeat from "./PlayerSeat";
 import PlayingCard from "./PlayingCard";
@@ -35,6 +35,14 @@ function formatStackInBB(stack, blinds) {
 }
 
 function getVisibleBoard(scenario, animationStep) {
+  const structuredReveal = scenario.revealSteps?.find(
+    (step) => step.animationStep === animationStep,
+  );
+
+  if (structuredReveal?.boardCount !== undefined) {
+    return scenario.board.slice(0, structuredReveal.boardCount);
+  }
+
   const flopIndex = scenario.previousActions.findIndex((action) =>
     action.toLowerCase().includes("flop comes"),
   );
@@ -54,13 +62,14 @@ function getVisibleBoard(scenario, animationStep) {
 }
 
 function buildSeatList(scenario) {
+  const villains = Array.isArray(scenario.villains) ? scenario.villains : [];
   const players = [
     {
       ...scenario.hero,
       isHero: true,
       stackBB: formatStackInBB(scenario.hero.stack, scenario.blinds),
     },
-    ...scenario.villains.map((villain) => ({
+    ...villains.map((villain) => ({
       ...villain,
       isHero: false,
       stackBB: formatStackInBB(villain.stack, scenario.blinds),
@@ -89,18 +98,41 @@ function coordinateStyle(position) {
   };
 }
 
+function buildTableViewModel(scenario, animationStep) {
+  const positions = seatLayouts[scenario.tableFormat] ?? seatLayouts["6-max"];
+  const seats = buildSeatList(scenario).slice(0, positions.length);
+
+  return {
+    positions,
+    seats,
+    visibleBoard: getVisibleBoard(scenario, animationStep),
+    decisionReady: animationStep >= scenario.previousActions.length,
+  };
+}
+
 export default function PokerTable() {
   const scenario = useEvaluationStore((state) => state.currentScenario);
+  const currentChallenge = useEvaluationStore((state) => state.currentChallenge);
+  const currentScenarioIndex = useEvaluationStore((state) => state.currentScenarioIndex);
+  const scenarios = useEvaluationStore((state) => state.scenarios);
   const animationStep = useEvaluationStore((state) => state.animationStep);
   const selectedAction = useEvaluationStore((state) => state.selectedAction);
+  const decisionResult = useEvaluationStore((state) => state.decisionResult);
+  const decisionSecondsRemaining = useEvaluationStore(
+    (state) => state.decisionSecondsRemaining,
+  );
   const advanceAnimation = useEvaluationStore((state) => state.advanceAnimation);
+  const startDecisionTimer = useEvaluationStore((state) => state.startDecisionTimer);
+  const tickDecisionTimer = useEvaluationStore((state) => state.tickDecisionTimer);
   const selectAction = useEvaluationStore((state) => state.selectAction);
+  const nextScenario = useEvaluationStore((state) => state.nextScenario);
   const goDashboard = useEvaluationStore((state) => state.goDashboard);
 
-  const isDecisionReady = animationStep >= scenario.previousActions.length;
-  const visibleBoard = getVisibleBoard(scenario, animationStep);
-  const positions = seatLayouts[scenario.tableFormat] ?? seatLayouts["6-max"];
-  const seats = buildSeatList(scenario);
+  const tableView = buildTableViewModel(scenario, animationStep);
+  const isDecisionReady = tableView.decisionReady;
+  const questionCount = currentChallenge?.evaluation?.questionCount ?? scenarios.length;
+  const progressLabel = `${Math.min(currentScenarioIndex + 1, questionCount)}/${questionCount}`;
+  const timerDanger = decisionSecondsRemaining <= 8;
 
   useEffect(() => {
     if (isDecisionReady || selectedAction) return undefined;
@@ -112,6 +144,22 @@ export default function PokerTable() {
     return () => window.clearTimeout(timer);
   }, [advanceAnimation, animationStep, isDecisionReady, selectedAction]);
 
+  useEffect(() => {
+    if (!isDecisionReady || decisionResult || selectedAction) return;
+
+    startDecisionTimer();
+  }, [decisionResult, isDecisionReady, selectedAction, startDecisionTimer]);
+
+  useEffect(() => {
+    if (!isDecisionReady || decisionResult || selectedAction) return undefined;
+
+    const timer = window.setInterval(() => {
+      tickDecisionTimer();
+    }, 1000);
+
+    return () => window.clearInterval(timer);
+  }, [decisionResult, isDecisionReady, selectedAction, tickDecisionTimer]);
+
   return (
     <main className="h-dvh overflow-hidden bg-aurora text-green">
       <section className="grid-shell h-full px-2 py-2 sm:px-4 sm:py-3 lg:px-6">
@@ -119,6 +167,12 @@ export default function PokerTable() {
         <header className="flex shrink-0 items-center justify-between gap-3">
           <div className="min-w-0">
             <div className="mb-1 hidden flex-wrap gap-2 sm:flex">
+              {currentChallenge?.assignmentCode ? (
+                <Badge className="border-green/45 text-green">
+                  Code {currentChallenge.assignmentCode}
+                </Badge>
+              ) : null}
+              <Badge>{progressLabel}</Badge>
               <Badge>{scenario.gameType}</Badge>
               <Badge>{scenario.tableFormat}</Badge>
               <Badge>{scenario.blinds}</Badge>
@@ -129,6 +183,17 @@ export default function PokerTable() {
             </h1>
           </div>
           <div className="flex shrink-0 items-center gap-2">
+            <Badge
+              className={[
+                "gap-1",
+                timerDanger ? "border-red-300/45 text-red-100" : "border-green/45 text-green",
+              ].join(" ")}
+            >
+              <Timer className="h-3.5 w-3.5" />
+              {isDecisionReady && !decisionResult
+                ? `${decisionSecondsRemaining}s`
+                : "Loading"}
+            </Badge>
             <Badge className="sm:hidden">{scenario.street}</Badge>
             <Button className="h-9 px-3 text-[10px] sm:h-11 sm:px-5 sm:text-sm" variant="secondary" onClick={goDashboard}>
               <ArrowLeft className="mr-1 h-3 w-3 sm:mr-2 sm:h-4 sm:w-4" />
@@ -175,8 +240,8 @@ export default function PokerTable() {
                   style={coordinateStyle(tableCenterLayout.board)}
                 >
                   <AnimatePresence mode="popLayout">
-                    {visibleBoard.length > 0
-                      ? visibleBoard.map((card, index) => (
+                    {tableView.visibleBoard.length > 0
+                      ? tableView.visibleBoard.map((card, index) => (
                           <PlayingCard
                             key={card}
                             card={card}
@@ -194,13 +259,13 @@ export default function PokerTable() {
                 </div>
               </motion.div>
 
-                {seats.slice(0, positions.length).map((player, index) => (
+                {tableView.seats.map((player, index) => (
                   <PlayerSeat
                     key={`${player.position}-${player.name}`}
                     player={player}
-                    position={positions[index]}
-                    anchor={positions[index].anchor}
-                    cardDock={positions[index].cardDock}
+                    position={tableView.positions[index]}
+                    anchor={tableView.positions[index].anchor}
+                    cardDock={tableView.positions[index].cardDock}
                     isHero={player.isHero}
                     showCards={player.isHero && animationStep >= 1}
                     active={player.isHero ? isDecisionReady : player.status === "Active"}
@@ -211,9 +276,11 @@ export default function PokerTable() {
               <div className="absolute inset-x-4 bottom-5 z-40 sm:inset-x-6 sm:bottom-6">
                 <ActionPanel
                   scenario={scenario}
-                  disabled={!isDecisionReady}
+                  disabled={!isDecisionReady || Boolean(decisionResult)}
                   selectedAction={selectedAction}
+                  decisionResult={decisionResult}
                   onSelectAction={selectAction}
+                  onContinue={nextScenario}
                   compact
                 />
               </div>
