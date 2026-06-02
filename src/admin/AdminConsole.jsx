@@ -491,6 +491,19 @@ export default function AdminConsole() {
                 </button>
                 <button
                   type="button"
+                  onClick={() => setActiveSection("database")}
+                  className={[
+                    "flex h-11 items-center gap-2 rounded-xl border px-4 text-left text-sm font-bold transition",
+                    activeSection === "database"
+                      ? "border-green bg-green text-black"
+                      : "border-white/10 bg-black/20 text-green hover:border-green/35 hover:bg-green/10",
+                  ].join(" ")}
+                >
+                  <Database className="h-4 w-4" />
+                  Challenge Database
+                </button>
+                <button
+                  type="button"
                   onClick={() => setActiveSection("lookup")}
                   className={[
                     "flex h-11 items-center gap-2 rounded-xl border px-4 text-left text-sm font-bold transition",
@@ -536,47 +549,6 @@ export default function AdminConsole() {
                   <span>{message.text}</span>
                 </div>
               ) : null}
-
-              <div className="space-y-3">
-                <div className="text-xs font-bold uppercase tracking-[0.16em] text-white/42">
-                  Evaluation Files
-                </div>
-                {loading ? <Badge>Loading database</Badge> : null}
-                {evaluationFiles.length === 0 && !loading ? (
-                  <div className="rounded-2xl border border-white/10 bg-black/20 p-4 text-sm leading-6 text-white/58">
-                    No database evaluation files yet. Upload a valid JSON file to begin.
-                  </div>
-                ) : null}
-                {evaluationFiles.map((file) => {
-                  const selected = file.id === selectedEvaluationId;
-
-                  return (
-                    <button
-                      key={file.id}
-                      type="button"
-                      onClick={() => {
-                        setSelectedEvaluationId(file.id);
-                        setChallengeName(file.evaluation.title);
-                      }}
-                      className={[
-                        "w-full rounded-2xl border p-4 text-left transition",
-                        selected
-                          ? "border-green bg-green/10"
-                          : "border-white/10 bg-black/20 hover:border-white/20 hover:bg-white/[0.06]",
-                      ].join(" ")}
-                    >
-                      <div className="font-display text-lg font-bold leading-tight">
-                        {file.evaluation.title}
-                      </div>
-                      <div className="mt-1 text-xs text-white/52">{file.slug}</div>
-                      <div className="mt-3 flex flex-wrap gap-2">
-                        <Badge>{file.questionCount} questions</Badge>
-                        <Badge>DB</Badge>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
             </aside>
 
             <section className="glass-panel rounded-[1.75rem] p-5 sm:p-7">
@@ -701,6 +673,145 @@ export default function AdminConsole() {
                           Choose a challenge to assign it to a user.
                         </p>
                       )}
+                    </div>
+                  </div>
+                </div>
+              ) : activeSection === "database" ? (
+                <div>
+                  <div className="mb-3 flex flex-wrap gap-2">
+                    <Badge>Challenge Database</Badge>
+                    <Badge>Stored challenge files</Badge>
+                  </div>
+                  <h2 className="font-display text-3xl font-black sm:text-4xl">
+                    Challenge files and created challenges.
+                  </h2>
+                  <p className="mt-3 max-w-3xl text-sm leading-6 text-white/62">
+                    JSON files uploaded from Challenge Control are stored here as
+                    challenge files. Created database challenges are listed below
+                    and can be selected for assignment.
+                  </p>
+
+                  <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+                    <div className="rounded-[1.5rem] border border-white/10 bg-black/55 p-5">
+                      <div className="mb-3 flex items-center justify-between gap-3">
+                        <h3 className="font-display text-xl font-bold">
+                          Challenge Files
+                        </h3>
+                        <Badge>
+                          {loading ? "Loading" : `${evaluationFiles.length} total`}
+                        </Badge>
+                      </div>
+
+                      {evaluationFiles.length === 0 && !loading ? (
+                        <div className="rounded-2xl border border-dashed border-white/12 bg-black/20 p-5 text-sm leading-6 text-white/55">
+                          No challenge files yet. Upload a JSON file in Challenge
+                          Control to store one here.
+                        </div>
+                      ) : null}
+
+                      <div className="grid gap-3 md:grid-cols-2">
+                        {evaluationFiles.map((file) => {
+                          const selected = file.id === selectedEvaluationId;
+
+                          return (
+                            <button
+                              key={file.id}
+                              type="button"
+                              onClick={() => {
+                                setSelectedEvaluationId(file.id);
+                                setChallengeName(file.evaluation.title);
+                              }}
+                              className={[
+                                "rounded-2xl border p-4 text-left transition",
+                                selected
+                                  ? "border-green bg-green/10"
+                                  : "border-white/10 bg-black/25 hover:border-white/20 hover:bg-white/[0.06]",
+                              ].join(" ")}
+                            >
+                              <div className="font-display text-lg font-bold leading-tight">
+                                {file.evaluation.title}
+                              </div>
+                              <div className="mt-1 text-xs text-white/52">
+                                {file.slug}
+                              </div>
+                              <p className="mt-3 line-clamp-2 text-sm leading-6 text-white/52">
+                                {file.evaluation.description ||
+                                  "No description recorded."}
+                              </p>
+                              <div className="mt-3 flex flex-wrap gap-2">
+                                <Badge>{file.questionCount} questions</Badge>
+                                <Badge>
+                                  Target{" "}
+                                  {file.evaluation.fundedThresholdPercent ?? 80}%
+                                </Badge>
+                                <Badge>{selected ? "Selected" : "Stored"}</Badge>
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    <div className="rounded-[1.5rem] border border-white/10 bg-white/[0.04] p-5">
+                      <div className="text-xs font-bold uppercase tracking-[0.16em] text-green">
+                        Active Selection
+                      </div>
+                      {selectedEvaluation ? (
+                        <>
+                          <h3 className="mt-2 font-display text-2xl font-bold">
+                            {selectedEvaluation.evaluation.title}
+                          </h3>
+                          <p className="mt-2 text-sm leading-6 text-white/58">
+                            {selectedEvaluation.evaluation.description}
+                          </p>
+                          <div className="mt-4 flex flex-wrap gap-2">
+                            <Badge>{selectedEvaluation.questionCount} questions</Badge>
+                            <Badge>{selectedEvaluation.slug}</Badge>
+                          </div>
+                        </>
+                      ) : (
+                        <p className="mt-3 text-sm leading-6 text-white/55">
+                          Select a stored challenge file to use it in Challenge
+                          Control.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="mt-6 rounded-[1.5rem] border border-white/10 bg-black/45 p-5">
+                    <div className="mb-3 flex items-center justify-between gap-3">
+                      <h3 className="font-display text-xl font-bold">
+                        Database Challenges
+                      </h3>
+                      <Badge>{challenges.length} total</Badge>
+                    </div>
+                    <div className="grid gap-3 md:grid-cols-2">
+                      {challenges.map((challenge) => (
+                        <button
+                          key={challenge.id}
+                          type="button"
+                          className={[
+                            "rounded-2xl border p-4 text-left transition",
+                            selectedChallengeId === challenge.id
+                              ? "border-green bg-green/10"
+                              : "border-white/10 bg-black/22 hover:border-white/20",
+                          ].join(" ")}
+                          onClick={() => setSelectedChallengeId(challenge.id)}
+                        >
+                          <div className="font-display text-lg font-bold">
+                            {challenge.name}
+                          </div>
+                          <div className="mt-2 text-xs text-white/45">
+                            Created {formatDate(challenge.created_at)}
+                          </div>
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            <Badge>
+                              {challenge.evaluation_files?.title ?? "Evaluation"}
+                            </Badge>
+                            <Badge>Assignable</Badge>
+                          </div>
+                        </button>
+                      ))}
                     </div>
                   </div>
                 </div>
@@ -1075,8 +1186,8 @@ export default function AdminConsole() {
                           Create a challenge from an uploaded file.
                         </h2>
                         <p className="mt-3 max-w-3xl text-sm leading-6 text-white/62">
-                          Uploaded evaluation files live in Supabase. A challenge
-                          points to one evaluation file, then that challenge can be
+                          Uploaded challenge files live in Supabase. A challenge
+                          points to one challenge file, then that challenge can be
                           assigned to a specific user.
                         </p>
                       </div>
@@ -1085,7 +1196,7 @@ export default function AdminConsole() {
                         <label className="mb-4 flex min-h-24 cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-green/35 bg-green/10 px-4 py-5 text-center transition hover:bg-green/15">
                           <Upload className="mb-2 h-6 w-6 text-green" />
                           <span className="text-sm font-bold uppercase tracking-[0.14em] text-green">
-                            Upload Evaluation JSON
+                            Upload Challenge JSON
                           </span>
                           <span className="mt-1 text-xs leading-5 text-white/48">
                             Save the evaluation file, then create a challenge from it.
@@ -1096,6 +1207,33 @@ export default function AdminConsole() {
                             accept="application/json,.json"
                             onChange={handleUpload}
                           />
+                        </label>
+
+                        <label className="mb-4 block">
+                          <span className="text-xs font-bold uppercase tracking-[0.14em] text-white/58">
+                            Source Challenge File
+                          </span>
+                          <select
+                            className="mt-2 h-12 w-full rounded-xl border border-white/10 bg-black px-4 text-sm text-green outline-none focus:border-green"
+                            value={selectedEvaluationId}
+                            onChange={(event) => {
+                              const nextEvaluation = evaluationFiles.find(
+                                (file) => file.id === event.target.value,
+                              );
+
+                              setSelectedEvaluationId(event.target.value);
+                              setChallengeName(
+                                nextEvaluation?.evaluation.title ?? challengeName,
+                              );
+                            }}
+                          >
+                            <option value="">Choose stored file</option>
+                            {evaluationFiles.map((file) => (
+                              <option key={file.id} value={file.id}>
+                                {file.evaluation.title}
+                              </option>
+                            ))}
+                          </select>
                         </label>
 
                         <label className="block">
@@ -1114,62 +1252,6 @@ export default function AdminConsole() {
                           Create Challenge
                         </Button>
                       </div>
-
-                      {selectedEvaluation ? (
-                        <div className="mt-5 rounded-[1.5rem] border border-white/10 bg-white/[0.04] p-5">
-                          <div className="flex items-start justify-between gap-4">
-                            <div>
-                              <div className="text-xs font-bold uppercase tracking-[0.16em] text-green">
-                                Selected Evaluation
-                              </div>
-                              <h3 className="mt-2 font-display text-2xl font-bold">
-                                {selectedEvaluation.evaluation.title}
-                              </h3>
-                              <p className="mt-2 text-sm leading-6 text-white/58">
-                                {selectedEvaluation.evaluation.description}
-                              </p>
-                            </div>
-                            <Database className="h-6 w-6 shrink-0 text-green" />
-                          </div>
-                        </div>
-                      ) : null}
-                    </div>
-                  </div>
-
-                  <div className="mt-6 border-t border-white/10 pt-5">
-                    <div className="mb-3 flex items-center justify-between gap-3">
-                      <h3 className="font-display text-xl font-bold">
-                        Database Challenges
-                      </h3>
-                      <Badge>{challenges.length} total</Badge>
-                    </div>
-                    <div className="grid gap-3 md:grid-cols-2">
-                      {challenges.map((challenge) => (
-                        <button
-                          key={challenge.id}
-                          type="button"
-                          className={[
-                            "rounded-2xl border p-4 text-left transition",
-                            selectedChallengeId === challenge.id
-                              ? "border-green bg-green/10"
-                              : "border-white/10 bg-black/22 hover:border-white/20",
-                          ].join(" ")}
-                          onClick={() => setSelectedChallengeId(challenge.id)}
-                        >
-                          <div className="font-display text-lg font-bold">
-                            {challenge.name}
-                          </div>
-                          <div className="mt-2 text-xs text-white/45">
-                            Created {formatDate(challenge.created_at)}
-                          </div>
-                          <div className="mt-3 flex flex-wrap gap-2">
-                            <Badge>
-                              {challenge.evaluation_files?.title ?? "Evaluation"}
-                            </Badge>
-                            <Badge>Assignable</Badge>
-                          </div>
-                        </button>
-                      ))}
                     </div>
                   </div>
                 </>
