@@ -8,6 +8,7 @@ import ScenarioLog from "./ScenarioLog";
 import ScorePanel from "./ScorePanel";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
+import { getBetChipPosition } from "../config/betChipLayouts";
 import { tableCenterLayout } from "../config/tableCenterLayout";
 import { seatLayouts } from "../config/seatLayouts";
 import { useEvaluationStore } from "../store/useEvaluationStore";
@@ -118,20 +119,11 @@ function getActionActor(action, seats) {
   });
 }
 
-function getBetSpot(origin) {
-  const tableCenter = { x: 53, y: 50 };
-
-  return {
-    x: origin.x + (tableCenter.x - origin.x) * 0.42,
-    y: origin.y + (tableCenter.y - origin.y) * 0.42,
-  };
-}
-
 function isStreetRevealAction(action) {
   return /\b(flop|turn|river)\b/i.test(action);
 }
 
-function getBetForAction(action, seats, positions) {
+function getBetForAction(action, seats, positions, tableFormat) {
   const amount = parseActionAmount(action);
   if (!amount) return null;
 
@@ -145,11 +137,11 @@ function getBetForAction(action, seats, positions) {
     id: actor?.position ?? actor?.name ?? `seat-${actorIndex}`,
     amount,
     from: origin,
-    spot: getBetSpot(origin),
+    spot: getBetChipPosition(tableFormat, origin),
   };
 }
 
-function buildVisibleBets(actions, seats, positions) {
+function buildVisibleBets(actions, seats, positions, tableFormat) {
   const bets = new Map();
 
   actions.forEach((action) => {
@@ -158,7 +150,7 @@ function buildVisibleBets(actions, seats, positions) {
       return;
     }
 
-    const bet = getBetForAction(action, seats, positions);
+    const bet = getBetForAction(action, seats, positions, tableFormat);
     if (bet) {
       bets.set(bet.id, bet);
     }
@@ -173,11 +165,17 @@ function buildTableViewModel(scenario, animationStep) {
   const visibleActions = scenario.previousActions.slice(0, animationStep);
   const latestAction =
     animationStep > 0 ? scenario.previousActions[animationStep - 1] : null;
-  const tableBets = buildVisibleBets(visibleActions, seats, positions);
+  const tableBets = buildVisibleBets(
+    visibleActions,
+    seats,
+    positions,
+    scenario.tableFormat,
+  );
   const previousTableBets = buildVisibleBets(
     scenario.previousActions.slice(0, Math.max(animationStep - 1, 0)),
     seats,
     positions,
+    scenario.tableFormat,
   );
 
   return {
