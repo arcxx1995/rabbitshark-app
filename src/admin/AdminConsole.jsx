@@ -288,24 +288,39 @@ export default function AdminConsole() {
                   type="button"
                   onClick={() => setActiveSection("challenges")}
                   className={[
-                    "h-11 rounded-xl border px-4 text-left text-sm font-bold transition",
+                    "flex h-11 items-center gap-2 rounded-xl border px-4 text-left text-sm font-bold transition",
                     activeSection === "challenges"
                       ? "border-green bg-green text-black"
                       : "border-white/10 bg-black/20 text-green hover:border-green/35 hover:bg-green/10",
                   ].join(" ")}
                 >
+                  <FileJson2 className="h-4 w-4" />
                   Challenge Control
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveSection("assign")}
+                  className={[
+                    "flex h-11 items-center gap-2 rounded-xl border px-4 text-left text-sm font-bold transition",
+                    activeSection === "assign"
+                      ? "border-green bg-green text-black"
+                      : "border-white/10 bg-black/20 text-green hover:border-green/35 hover:bg-green/10",
+                  ].join(" ")}
+                >
+                  <UserPlus className="h-4 w-4" />
+                  Assign Challenge
                 </button>
                 <button
                   type="button"
                   onClick={() => setActiveSection("lookup")}
                   className={[
-                    "h-11 rounded-xl border px-4 text-left text-sm font-bold transition",
+                    "flex h-11 items-center gap-2 rounded-xl border px-4 text-left text-sm font-bold transition",
                     activeSection === "lookup"
                       ? "border-green bg-green text-black"
                       : "border-white/10 bg-black/20 text-green hover:border-green/35 hover:bg-green/10",
                   ].join(" ")}
                 >
+                  <Search className="h-4 w-4" />
                   Assignment Lookup
                 </button>
               </div>
@@ -371,7 +386,119 @@ export default function AdminConsole() {
             </aside>
 
             <section className="glass-panel rounded-[1.75rem] p-5 sm:p-7">
-              {activeSection === "lookup" ? (
+              {activeSection === "assign" ? (
+                <div>
+                  <div className="mb-3 flex flex-wrap gap-2">
+                    <Badge>Assign Challenge</Badge>
+                    <Badge>Challenge to user</Badge>
+                  </div>
+                  <h2 className="font-display text-3xl font-black sm:text-4xl">
+                    Assign a challenge to a user.
+                  </h2>
+                  <p className="mt-3 max-w-3xl text-sm leading-6 text-white/62">
+                    Search profiles by email or name, select a user, then assign
+                    the selected challenge. It appears on that user's dashboard.
+                  </p>
+
+                  <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
+                    <div className="rounded-[1.5rem] border border-white/10 bg-black/60 p-5">
+                      <label className="block">
+                        <span className="text-xs font-bold uppercase tracking-[0.14em] text-white/58">
+                          Select Challenge
+                        </span>
+                        <select
+                          className="mt-2 h-12 w-full rounded-xl border border-white/10 bg-black px-4 text-sm text-green outline-none focus:border-green"
+                          value={selectedChallengeId}
+                          onChange={(event) =>
+                            setSelectedChallengeId(event.target.value)
+                          }
+                        >
+                          <option value="">Choose challenge</option>
+                          {challenges.map((challenge) => (
+                            <option key={challenge.id} value={challenge.id}>
+                              {challenge.name}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+
+                      <label className="mt-4 block">
+                        <span className="text-xs font-bold uppercase tracking-[0.14em] text-white/58">
+                          Search User
+                        </span>
+                        <div className="mt-2 flex h-12 items-center gap-3 rounded-xl border border-white/10 bg-white/5 px-3 focus-within:border-green">
+                          <Search className="h-4 w-4 text-white/45" />
+                          <input
+                            className="min-w-0 flex-1 bg-transparent text-sm text-green outline-none placeholder:text-white/35"
+                            value={userQuery}
+                            onChange={(event) => setUserQuery(event.target.value)}
+                            placeholder="developer@example.com"
+                          />
+                        </div>
+                      </label>
+
+                      <div className="mt-3 grid gap-2">
+                        {userResults.map((user) => (
+                          <button
+                            key={user.id}
+                            type="button"
+                            className={[
+                              "rounded-xl border px-3 py-3 text-left text-sm transition",
+                              selectedUser?.id === user.id
+                                ? "border-green bg-green/10"
+                                : "border-white/10 bg-white/5 hover:border-white/20",
+                            ].join(" ")}
+                            onClick={() => setSelectedUser(user)}
+                          >
+                            <div className="font-bold text-green">{user.email}</div>
+                            <div className="mt-1 text-xs text-white/45">
+                              {user.display_name || user.id}
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+
+                      {selectedUser ? (
+                        <div className="mt-4 rounded-xl border border-green/25 bg-green/10 p-3 text-sm text-green">
+                          Selected {selectedUser.email}
+                        </div>
+                      ) : null}
+
+                      <Button className="mt-4 w-full" onClick={handleAssignChallenge}>
+                        <UserPlus className="mr-2 h-5 w-5" />
+                        Assign Challenge
+                      </Button>
+                    </div>
+
+                    <div className="rounded-[1.5rem] border border-white/10 bg-white/[0.04] p-5">
+                      <div className="text-xs font-bold uppercase tracking-[0.16em] text-green">
+                        Selected Challenge
+                      </div>
+                      {selectedChallenge ? (
+                        <>
+                          <h3 className="mt-2 font-display text-2xl font-bold">
+                            {selectedChallenge.name}
+                          </h3>
+                          <div className="mt-2 text-sm text-white/55">
+                            {selectedChallenge.evaluation_files?.title ??
+                              "Evaluation file"}
+                          </div>
+                          <div className="mt-4 flex flex-wrap gap-2">
+                            <Badge>
+                              Created {formatDate(selectedChallenge.created_at)}
+                            </Badge>
+                            <Badge>Assignable</Badge>
+                          </div>
+                        </>
+                      ) : (
+                        <p className="mt-3 text-sm leading-6 text-white/55">
+                          Choose a challenge to assign it to a user.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ) : activeSection === "lookup" ? (
                 <div>
                   <div className="mb-3 flex flex-wrap gap-2">
                     <Badge>Assignment Lookup</Badge>
@@ -521,9 +648,9 @@ export default function AdminConsole() {
                 </div>
               ) : (
                 <>
-                  <div className="grid gap-6 lg:grid-cols-2">
+                  <div className="grid gap-6">
                     <div className="flex flex-col">
-                      <div className="lg:min-h-[300px] xl:min-h-[230px]">
+                      <div>
                         <div className="mb-3 flex flex-wrap gap-2">
                           <Badge>Step 1</Badge>
                           <Badge>Evaluation to challenge</Badge>
@@ -590,92 +717,6 @@ export default function AdminConsole() {
                           </div>
                         </div>
                       ) : null}
-                    </div>
-
-                    <div className="flex flex-col">
-                      <div className="lg:min-h-[300px] xl:min-h-[230px]">
-                        <div className="mb-3 flex flex-wrap gap-2">
-                          <Badge>Step 2</Badge>
-                          <Badge>Challenge to user</Badge>
-                        </div>
-                        <h2 className="font-display text-3xl font-black sm:text-4xl">
-                          Assign the challenge.
-                        </h2>
-                        <p className="mt-3 text-sm leading-6 text-white/62">
-                          Search profiles by email or name, select a user, then
-                          assign the selected challenge. It appears on that user's
-                          dashboard.
-                        </p>
-                      </div>
-
-                      <div className="min-h-[282px] rounded-[1.5rem] border border-white/10 bg-black/60 p-5">
-                        <label className="block">
-                          <span className="text-xs font-bold uppercase tracking-[0.14em] text-white/58">
-                            Select Challenge
-                          </span>
-                          <select
-                            className="mt-2 h-12 w-full rounded-xl border border-white/10 bg-black px-4 text-sm text-green outline-none focus:border-green"
-                            value={selectedChallengeId}
-                            onChange={(event) =>
-                              setSelectedChallengeId(event.target.value)
-                            }
-                          >
-                            <option value="">Choose challenge</option>
-                            {challenges.map((challenge) => (
-                              <option key={challenge.id} value={challenge.id}>
-                                {challenge.name}
-                              </option>
-                            ))}
-                          </select>
-                        </label>
-
-                        <label className="mt-4 block">
-                          <span className="text-xs font-bold uppercase tracking-[0.14em] text-white/58">
-                            Search User
-                          </span>
-                          <div className="mt-2 flex h-12 items-center gap-3 rounded-xl border border-white/10 bg-white/5 px-3 focus-within:border-green">
-                            <Search className="h-4 w-4 text-white/45" />
-                            <input
-                              className="min-w-0 flex-1 bg-transparent text-sm text-green outline-none placeholder:text-white/35"
-                              value={userQuery}
-                              onChange={(event) => setUserQuery(event.target.value)}
-                              placeholder="developer@example.com"
-                            />
-                          </div>
-                        </label>
-
-                        <div className="mt-3 grid gap-2">
-                          {userResults.map((user) => (
-                            <button
-                              key={user.id}
-                              type="button"
-                              className={[
-                                "rounded-xl border px-3 py-3 text-left text-sm transition",
-                                selectedUser?.id === user.id
-                                  ? "border-green bg-green/10"
-                                  : "border-white/10 bg-white/5 hover:border-white/20",
-                              ].join(" ")}
-                              onClick={() => setSelectedUser(user)}
-                            >
-                              <div className="font-bold text-green">{user.email}</div>
-                              <div className="mt-1 text-xs text-white/45">
-                                {user.display_name || user.id}
-                              </div>
-                            </button>
-                          ))}
-                        </div>
-
-                        {selectedUser ? (
-                          <div className="mt-4 rounded-xl border border-green/25 bg-green/10 p-3 text-sm text-green">
-                            Selected {selectedUser.email}
-                          </div>
-                        ) : null}
-
-                        <Button className="mt-4 w-full" onClick={handleAssignChallenge}>
-                          <UserPlus className="mr-2 h-5 w-5" />
-                          Assign Challenge
-                        </Button>
-                      </div>
                     </div>
                   </div>
 
