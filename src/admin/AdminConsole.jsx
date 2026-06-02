@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   AlertCircle,
   Ban,
-  ChevronDown,
   CheckCircle2,
   Database,
   FileJson2,
@@ -14,6 +13,7 @@ import {
   ShieldCheck,
   Upload,
   UserPlus,
+  X,
 } from "lucide-react";
 import {
   assignChallengeToUser,
@@ -121,7 +121,7 @@ export default function AdminConsole() {
   const [assignmentResults, setAssignmentResults] = useState([]);
   const [assignmentLookupLoading, setAssignmentLookupLoading] = useState(false);
   const [assignmentLookupSearched, setAssignmentLookupSearched] = useState(false);
-  const [expandedAssignmentIds, setExpandedAssignmentIds] = useState([]);
+  const [selectedAssignmentDetails, setSelectedAssignmentDetails] = useState(null);
   const [healthRows, setHealthRows] = useState([]);
   const [healthLoading, setHealthLoading] = useState(false);
   const [healthSearched, setHealthSearched] = useState(false);
@@ -439,7 +439,7 @@ export default function AdminConsole() {
           : await searchAssignmentsByEmail(lookupValue);
 
       setAssignmentResults(results);
-      setExpandedAssignmentIds([]);
+      setSelectedAssignmentDetails(null);
       setAssignmentLookupLoading(false);
     } catch (error) {
       setAssignmentLookupLoading(false);
@@ -451,14 +451,6 @@ export default function AdminConsole() {
             : "Could not search assignment details.",
       });
     }
-  };
-
-  const toggleExpandedAssignment = (assignmentId) => {
-    setExpandedAssignmentIds((currentIds) =>
-      currentIds.includes(assignmentId)
-        ? currentIds.filter((id) => id !== assignmentId)
-        : [...currentIds, assignmentId],
-    );
   };
 
   return (
@@ -860,7 +852,7 @@ export default function AdminConsole() {
                           onClick={() => {
                             setAssignmentLookupMode(mode);
                             setAssignmentResults([]);
-                            setExpandedAssignmentIds([]);
+                            setSelectedAssignmentDetails(null);
                             setAssignmentLookupSearched(false);
                           }}
                           className={[
@@ -956,11 +948,6 @@ export default function AdminConsole() {
                         const challenge = assignment.challenges;
                         const evaluationFile = challenge?.evaluation_files;
                         const profile = assignment.profile;
-                        const expanded = expandedAssignmentIds.includes(assignment.id);
-                        const canRevoke =
-                          assignment.status === "assigned" ||
-                          assignment.status === "active";
-                        const canResetTest = Boolean(assignment.is_test_assignment);
 
                         return (
                           <div
@@ -969,7 +956,7 @@ export default function AdminConsole() {
                           >
                             <button
                               type="button"
-                              onClick={() => toggleExpandedAssignment(assignment.id)}
+                              onClick={() => setSelectedAssignmentDetails(assignment)}
                               className="flex w-full items-start justify-between gap-3 p-4 text-left"
                             >
                               <div className="min-w-0">
@@ -990,142 +977,8 @@ export default function AdminConsole() {
                                 <Badge className={getStatusBadgeClass(assignment.status)}>
                                   {assignment.status}
                                 </Badge>
-                                <ChevronDown
-                                  className={[
-                                    "h-5 w-5 text-white/45 transition",
-                                    expanded ? "rotate-180" : "",
-                                  ].join(" ")}
-                                />
                               </div>
                             </button>
-
-                            {expanded ? (
-                              <div className="border-t border-white/10 p-4">
-                                <div className="grid gap-2 sm:grid-cols-2">
-                                  <div className="rounded-lg border border-white/10 bg-black/50 p-3">
-                                    <div className="text-[11px] font-bold uppercase tracking-[0.12em] text-white/35">
-                                      Assigned
-                                    </div>
-                                    <div className="mt-1 text-sm font-bold text-green">
-                                      {formatDateTime(assignment.assigned_at)}
-                                    </div>
-                                  </div>
-                                  <div className="rounded-lg border border-white/10 bg-black/50 p-3">
-                                    <div className="text-[11px] font-bold uppercase tracking-[0.12em] text-white/35">
-                                      Started
-                                    </div>
-                                    <div className="mt-1 text-sm font-bold text-green">
-                                      {formatDateTime(assignment.started_at)}
-                                    </div>
-                                  </div>
-                                  <div className="rounded-lg border border-white/10 bg-black/50 p-3">
-                                    <div className="text-[11px] font-bold uppercase tracking-[0.12em] text-white/35">
-                                      Completed
-                                    </div>
-                                    <div className="mt-1 text-sm font-bold text-green">
-                                      {formatDateTime(assignment.completed_at)}
-                                    </div>
-                                  </div>
-                                  <div className="rounded-lg border border-white/10 bg-black/50 p-3">
-                                    <div className="text-[11px] font-bold uppercase tracking-[0.12em] text-white/35">
-                                      Questions
-                                    </div>
-                                    <div className="mt-1 text-sm font-bold text-green">
-                                      {evaluationFile?.question_count ?? "Not set"}
-                                    </div>
-                                  </div>
-                                  <div className="rounded-lg border border-white/10 bg-black/50 p-3">
-                                    <div className="text-[11px] font-bold uppercase tracking-[0.12em] text-white/35">
-                                      Score
-                                    </div>
-                                    <div className="mt-1 text-sm font-bold text-green">
-                                      {assignment.score ?? "Not scored"}
-                                    </div>
-                                  </div>
-                                  <div className="rounded-lg border border-white/10 bg-black/50 p-3">
-                                    <div className="text-[11px] font-bold uppercase tracking-[0.12em] text-white/35">
-                                      Points
-                                    </div>
-                                    <div className="mt-1 text-sm font-bold text-green">
-                                      {assignment.earned_points ?? 0}/
-                                      {assignment.total_possible_points ??
-                                        evaluationFile?.total_possible_points ??
-                                        "Not set"}
-                                    </div>
-                                  </div>
-                                  <div className="rounded-lg border border-white/10 bg-black/50 p-3">
-                                    <div className="text-[11px] font-bold uppercase tracking-[0.12em] text-white/35">
-                                      Assigned By
-                                    </div>
-                                    <div className="mt-1 break-words text-sm font-bold text-green">
-                                      {assignment.assignedByProfile?.email ??
-                                        assignment.assigned_by ??
-                                        "Not recorded"}
-                                    </div>
-                                  </div>
-                                  <div className="rounded-lg border border-white/10 bg-black/50 p-3">
-                                    <div className="text-[11px] font-bold uppercase tracking-[0.12em] text-white/35">
-                                      Assignment ID
-                                    </div>
-                                    <div className="mt-1 break-words text-sm font-bold text-green">
-                                      {assignment.id}
-                                    </div>
-                                  </div>
-                                </div>
-
-                                <div className="mt-3 flex flex-wrap gap-2">
-                                  {evaluationFile?.file_code ? (
-                                    <Badge>{evaluationFile.file_code}</Badge>
-                                  ) : null}
-                                  <Badge>
-                                    {evaluationFile?.slug ?? "No evaluation slug"}
-                                  </Badge>
-                                  <Badge>
-                                    Target{" "}
-                                    {evaluationFile?.funded_threshold_percent ?? 80}%
-                                  </Badge>
-                                  <Badge>
-                                    {assignment.funded ? "Funded" : "Not funded"}
-                                  </Badge>
-                                  {assignment.is_test_assignment ? (
-                                    <>
-                                      <Badge className="border-yellow-200/45 text-yellow-100">
-                                        Testing Replica
-                                      </Badge>
-                                      <Badge>
-                                        Resets {assignment.reset_count ?? 0}
-                                      </Badge>
-                                    </>
-                                  ) : null}
-                                </div>
-
-                                <div className="mt-4 flex flex-wrap gap-2">
-                                  {canRevoke ? (
-                                    <Button
-                                      className="h-9 px-4 text-xs"
-                                      variant="danger"
-                                      onClick={() => handleRevokeAssignment(assignment)}
-                                    >
-                                      <Ban className="mr-2 h-4 w-4" />
-                                      Revoke
-                                    </Button>
-                                  ) : null}
-                                  {canResetTest ? (
-                                    <Button
-                                      className="h-9 px-4 text-xs"
-                                      variant="secondary"
-                                      onClick={() =>
-                                        handleResetTestAssignment(assignment)
-                                      }
-                                    >
-                                      <RefreshCw className="mr-2 h-4 w-4" />
-                                      Reset Test
-                                    </Button>
-                                  ) : null}
-                                </div>
-                                <AssignmentScoreRows assignment={assignment} />
-                              </div>
-                            ) : null}
                           </div>
                         );
                       })}
@@ -1230,6 +1083,146 @@ export default function AdminConsole() {
                   </div>
                 </>
               )}
+
+              {selectedAssignmentDetails ? (() => {
+                const assignment = selectedAssignmentDetails;
+                const challenge = assignment.challenges;
+                const evaluationFile = challenge?.evaluation_files;
+                const canRevoke =
+                  assignment.status === "assigned" || assignment.status === "active";
+                const canResetTest = Boolean(assignment.is_test_assignment);
+
+                return (
+                  <div
+                    className="fixed inset-0 z-50 grid place-items-center bg-black/70 p-4 backdrop-blur-md"
+                    onClick={() => setSelectedAssignmentDetails(null)}
+                    role="presentation"
+                  >
+                    <div
+                      className="max-h-[92vh] w-full max-w-4xl overflow-y-auto rounded-[1.5rem] border border-green/25 bg-black/95 p-5 shadow-[0_0_64px_rgba(0,255,136,0.16)] sm:p-6"
+                      onClick={(event) => event.stopPropagation()}
+                      role="dialog"
+                      aria-modal="true"
+                    >
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="min-w-0">
+                          <Badge className="border-green/45 text-green">
+                            Assignment Details
+                          </Badge>
+                          <div className="mt-4 font-display text-3xl font-black tracking-[0.12em] text-green">
+                            #{assignment.assignment_code}
+                          </div>
+                          <h3 className="mt-3 font-display text-2xl font-bold text-white">
+                            {challenge?.name ?? "Challenge"}
+                          </h3>
+                          <div className="mt-1 text-sm text-white/55">
+                            {evaluationFile?.title ?? "Evaluation file"}
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedAssignmentDetails(null)}
+                          className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-white/10 bg-white/5 text-white/70 transition hover:border-green/35 hover:text-green"
+                          aria-label="Close assignment details"
+                        >
+                          <X className="h-5 w-5" />
+                        </button>
+                      </div>
+
+                      <div className="mt-5 flex flex-wrap gap-2">
+                        <Badge className={getStatusBadgeClass(assignment.status)}>
+                          {assignment.status}
+                        </Badge>
+                        {evaluationFile?.file_code ? (
+                          <Badge>{evaluationFile.file_code}</Badge>
+                        ) : null}
+                        <Badge>{evaluationFile?.slug ?? "No evaluation slug"}</Badge>
+                        <Badge>
+                          Target {evaluationFile?.funded_threshold_percent ?? 80}%
+                        </Badge>
+                        <Badge>{assignment.funded ? "Funded" : "Not funded"}</Badge>
+                        {assignment.is_test_assignment ? (
+                          <>
+                            <Badge className="border-yellow-200/45 text-yellow-100">
+                              Testing Replica
+                            </Badge>
+                            <Badge>Resets {assignment.reset_count ?? 0}</Badge>
+                          </>
+                        ) : null}
+                      </div>
+
+                      <div className="mt-5 grid gap-2 sm:grid-cols-2">
+                        {[
+                          ["User", assignment.profile?.email ?? assignment.user_id],
+                          ["Assigned", formatDateTime(assignment.assigned_at)],
+                          ["Started", formatDateTime(assignment.started_at)],
+                          ["Completed", formatDateTime(assignment.completed_at)],
+                          ["Questions", evaluationFile?.question_count ?? "Not set"],
+                          ["Score", assignment.score ?? "Not scored"],
+                          [
+                            "Points",
+                            `${assignment.earned_points ?? 0}/${
+                              assignment.total_possible_points ??
+                              evaluationFile?.total_possible_points ??
+                              "Not set"
+                            }`,
+                          ],
+                          [
+                            "Assigned By",
+                            assignment.assignedByProfile?.email ??
+                              assignment.assigned_by ??
+                              "Not recorded",
+                          ],
+                          ["Assignment ID", assignment.id],
+                        ].map(([label, value]) => (
+                          <div
+                            key={label}
+                            className="rounded-lg border border-white/10 bg-black/50 p-3"
+                          >
+                            <div className="text-[11px] font-bold uppercase tracking-[0.12em] text-white/35">
+                              {label}
+                            </div>
+                            <div className="mt-1 break-words text-sm font-bold text-green">
+                              {value}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="mt-5 flex flex-wrap gap-2">
+                        {canRevoke ? (
+                          <Button
+                            className="h-9 px-4 text-xs"
+                            variant="danger"
+                            onClick={async () => {
+                              await handleRevokeAssignment(assignment);
+                              setSelectedAssignmentDetails(null);
+                            }}
+                          >
+                            <Ban className="mr-2 h-4 w-4" />
+                            Revoke
+                          </Button>
+                        ) : null}
+                        {canResetTest ? (
+                          <Button
+                            className="h-9 px-4 text-xs"
+                            variant="secondary"
+                            onClick={async () => {
+                              await handleResetTestAssignment(assignment);
+                              setSelectedAssignmentDetails(null);
+                            }}
+                          >
+                            <RefreshCw className="mr-2 h-4 w-4" />
+                            Reset Test
+                          </Button>
+                        ) : null}
+                      </div>
+
+                      <AssignmentScoreRows assignment={assignment} />
+                    </div>
+                  </div>
+                );
+              })() : null}
 
               <div className="mt-6 flex flex-wrap gap-3 border-t border-white/10 pt-5">
                 <Button variant="danger" onClick={logout}>
