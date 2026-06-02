@@ -244,6 +244,11 @@ export async function searchAssignmentsByEmail(query) {
 
 export async function getAssignedChallengesForCurrentUser() {
   const client = requireSupabase();
+  const { data: userData, error: userError } = await client.auth.getUser();
+
+  if (userError) throw userError;
+  if (!userData.user?.id) return [];
+
   const { data, error } = await client
     .from("user_challenges")
     .select(
@@ -255,6 +260,7 @@ export async function getAssignedChallengesForCurrentUser() {
         )
       `,
     )
+    .eq("user_id", userData.user.id)
     .in("status", ["assigned", "active"])
     .order("assigned_at", { ascending: false });
 

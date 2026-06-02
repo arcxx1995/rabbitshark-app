@@ -1,12 +1,5 @@
-# Database Challenge System
+create extension if not exists pgcrypto;
 
-Run this SQL in Supabase before using the database-backed admin console.
-The same setup is also available as a migration at
-`supabase/migrations/20260602000000_challenge_system.sql`.
-
-## Tables And Profiles
-
-```sql
 create table if not exists public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   email text not null,
@@ -52,30 +45,13 @@ on conflict (id) do update
 set
   email = excluded.email,
   display_name = excluded.display_name;
-```
 
-## Developer Allowlist
-
-```sql
 create table if not exists public.developer_users (
   user_id uuid primary key references auth.users(id) on delete cascade,
   email text not null,
   created_at timestamptz not null default now()
 );
-```
 
-Add a developer:
-
-```sql
-insert into public.developer_users (user_id, email)
-values ('PASTE_AUTH_USER_ID_HERE', 'developer@example.com')
-on conflict (user_id) do update
-set email = excluded.email;
-```
-
-## Evaluation And Challenge Tables
-
-```sql
 create table if not exists public.evaluation_files (
   id uuid primary key default gen_random_uuid(),
   slug text not null unique,
@@ -119,53 +95,23 @@ create table if not exists public.user_challenges (
   unique (assignment_code),
   unique (user_id, challenge_id)
 );
-```
 
-If the tables already exist, run this migration once:
-
-```sql
 alter table public.user_challenges
 add column if not exists assignment_code text;
 
-do $$
-declare
-  assignment record;
-  generated_code text;
-begin
-  for assignment in
-    select id
-    from public.user_challenges
-    where assignment_code is null
-  loop
-    loop
-      generated_code := lpad((floor(random() * 900000000) + 100000000)::bigint::text, 9, '0');
-
-      exit when not exists (
-        select 1
-        from public.user_challenges
-        where assignment_code = generated_code
-      );
-    end loop;
-
-    update public.user_challenges
-    set assignment_code = generated_code
-    where id = assignment.id;
-  end loop;
-end $$;
-
 alter table public.user_challenges
 alter column assignment_code set default lpad((floor(random() * 900000000) + 100000000)::bigint::text, 9, '0');
+
+update public.user_challenges
+set assignment_code = lpad((floor(random() * 900000000) + 100000000)::bigint::text, 9, '0')
+where assignment_code is null;
 
 alter table public.user_challenges
 alter column assignment_code set not null;
 
 create unique index if not exists user_challenges_assignment_code_key
 on public.user_challenges (assignment_code);
-```
 
-## RLS Policies
-
-```sql
 alter table public.profiles enable row level security;
 alter table public.developer_users enable row level security;
 alter table public.evaluation_files enable row level security;
@@ -299,4 +245,3 @@ for update
 to authenticated
 using (user_id = auth.uid() and status in ('assigned', 'active'))
 with check (user_id = auth.uid());
-```
