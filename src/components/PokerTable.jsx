@@ -108,12 +108,30 @@ function parseActionAmount(action) {
 }
 
 function getActionActor(action, seats) {
+  const normalizedAction = action.toLowerCase();
+
   return seats.find((player) => {
-    return action.includes(player.position) || action.includes(player.name);
+    return (
+      normalizedAction.includes(String(player.position).toLowerCase()) ||
+      normalizedAction.includes(String(player.name).toLowerCase())
+    );
   });
 }
 
-function getChipAnimation(action, seats, positions) {
+function getBetSpot(origin) {
+  const tableCenter = { x: 53, y: 50 };
+
+  return {
+    x: origin.x + (tableCenter.x - origin.x) * 0.42,
+    y: origin.y + (tableCenter.y - origin.y) * 0.42,
+  };
+}
+
+function isStreetRevealAction(action) {
+  return /\b(flop|turn|river)\b/i.test(action);
+}
+
+function getBetForAction(action, seats, positions) {
   const amount = parseActionAmount(action);
   if (!amount) return null;
 
@@ -124,69 +142,136 @@ function getChipAnimation(action, seats, positions) {
   if (!origin) return null;
 
   return {
+    id: actor?.position ?? actor?.name ?? `seat-${actorIndex}`,
     amount,
     from: origin,
-    to: tableCenterLayout.pot,
+    spot: getBetSpot(origin),
   };
+}
+
+function buildVisibleBets(actions, seats, positions) {
+  const bets = new Map();
+
+  actions.forEach((action) => {
+    if (isStreetRevealAction(action)) {
+      bets.clear();
+      return;
+    }
+
+    const bet = getBetForAction(action, seats, positions);
+    if (bet) {
+      bets.set(bet.id, bet);
+    }
+  });
+
+  return [...bets.values()];
 }
 
 function buildTableViewModel(scenario, animationStep) {
   const positions = seatLayouts[scenario.tableFormat] ?? seatLayouts["6-max"];
   const seats = buildSeatList(scenario).slice(0, positions.length);
+  const visibleActions = scenario.previousActions.slice(0, animationStep);
   const latestAction =
     animationStep > 0 ? scenario.previousActions[animationStep - 1] : null;
+  const latestBet = latestAction ? getBetForAction(latestAction, seats, positions) : null;
+  const tableBets = buildVisibleBets(visibleActions, seats, positions);
+  const previousTableBets = buildVisibleBets(
+    scenario.previousActions.slice(0, Math.max(animationStep - 1, 0)),
+    seats,
+    positions,
+  );
+  const visibleTableBets =
+    latestBet && !isStreetRevealAction(latestAction)
+      ? previousTableBets.filter((bet) => bet.id !== latestBet.id)
+      : tableBets;
 
   return {
     positions,
     seats,
     visibleBoard: getVisibleBoard(scenario, animationStep),
     decisionReady: animationStep >= scenario.previousActions.length,
-    chipAnimation: latestAction
-      ? getChipAnimation(latestAction, seats, positions)
-      : null,
+    tableBets: visibleTableBets,
+    chipAnimation: latestBet
+      ? {
+          type: "bet",
+          bets: [latestBet],
+        }
+      : latestAction && isStreetRevealAction(latestAction) && previousTableBets.length > 0
+        ? {
+            type: "collect",
+            bets: previousTableBets,
+          }
+        : null,
   };
 }
 
-function AnimatedPotChips({ animation }) {
+function ChipMarker({ amount }) {
+  return (
+    <div className="flex items-center gap-2 rounded-full border border-green/35 bg-black/75 px-3 py-1.5 text-green shadow-[0_0_28px_rgba(0,255,171,.24)]">
+      <div className="relative h-4 w-7">
+        {[0, 1, 2].map((chip) => (
+          <span
+            key={chip}
+            className="absolute left-0 h-2 w-7 rounded-full border border-black/40 bg-green"
+            style={{ bottom: chip * 3 }}
+          >
+            <span className="absolute inset-x-2 top-1 h-px bg-black/30" />
+          </span>
+        ))}
+      </div>
+      <span className="font-display text-xs font-black tracking-[0.12em]">
+        {amount}
+      </span>
+    </div>
+  );
+}
+
+function TableBetChips({ bets }) {
+  return bets.map((bet) => (
+    <div
+      key={`table-bet-${bet.id}`}
+      className="pointer-events-none absolute z-20 -translate-x-1/2 -translate-y-1/2"
+      style={{
+        left: `${bet.spot.x}%`,
+        top: `${bet.spot.y}%`,
+      }}
+    >
+      <ChipMarker amount={bet.amount} />
+    </div>
+  ));
+}
+
+function AnimatedChipMovement({ animation }) {
   if (!animation) return null;
 
-  return (
-    <motion.div
-      key={`${animation.amount}-${animation.from.x}-${animation.from.y}`}
-      className="pointer-events-none absolute z-30 -translate-x-1/2 -translate-y-1/2"
-      initial={{
-        left: `${animation.from.x}%`,
-        top: `${animation.from.y}%`,
-        scale: 0.82,
-        opacity: 0,
-      }}
-      animate={{
-        left: `${animation.to.x}%`,
-        top: `${animation.to.y}%`,
-        scale: 1,
-        opacity: [0, 1, 1, 0],
-      }}
-      exit={{ opacity: 0, scale: 0.9 }}
-      transition={{ duration: 0.72, ease: "easeInOut" }}
-    >
-      <div className="flex items-center gap-2 rounded-full border border-green/35 bg-black/75 px-3 py-1.5 text-green shadow-[0_0_28px_rgba(0,255,171,.24)]">
-        <div className="relative h-4 w-7">
-          {[0, 1, 2].map((chip) => (
-            <span
-              key={chip}
-              className="absolute left-0 h-2 w-7 rounded-full border border-black/40 bg-green"
-              style={{ bottom: chip * 3 }}
-            >
-              <span className="absolute inset-x-2 top-1 h-px bg-black/30" />
-            </span>
-          ))}
-        </div>
-        <span className="font-display text-xs font-black tracking-[0.12em]">
-          {animation.amount}
-        </span>
-      </div>
-    </motion.div>
-  );
+  return animation.bets.map((bet) => {
+    const isCollecting = animation.type === "collect";
+    const from = isCollecting ? bet.spot : bet.from;
+    const to = isCollecting ? tableCenterLayout.pot : bet.spot;
+
+    return (
+      <motion.div
+        key={`${animation.type}-${bet.id}-${bet.amount}-${from.x}-${from.y}`}
+        className="pointer-events-none absolute z-30 -translate-x-1/2 -translate-y-1/2"
+        initial={{
+          left: `${from.x}%`,
+          top: `${from.y}%`,
+          scale: 0.82,
+          opacity: 0,
+        }}
+        animate={{
+          left: `${to.x}%`,
+          top: `${to.y}%`,
+          scale: 1,
+          opacity: isCollecting ? [0, 1, 1, 0] : [0, 1, 1, 1],
+        }}
+        exit={{ opacity: 0, scale: 0.9 }}
+        transition={{ duration: isCollecting ? 0.72 : 0.58, ease: "easeInOut" }}
+      >
+        <ChipMarker amount={bet.amount} />
+      </motion.div>
+    );
+  });
 }
 
 export default function PokerTable() {
@@ -338,8 +423,10 @@ export default function PokerTable() {
                 </div>
               </motion.div>
 
+              <TableBetChips bets={tableView.tableBets} />
+
               <AnimatePresence mode="wait">
-                <AnimatedPotChips
+                <AnimatedChipMovement
                   key={`chips-${animationStep}`}
                   animation={tableView.chipAnimation}
                 />
