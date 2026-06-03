@@ -21,6 +21,26 @@ function AppScreens() {
     initializeData();
   }, [initializeData]);
 
+  useEffect(() => {
+    if (mode !== "dashboard") return undefined;
+
+    const refreshDashboardData = () => {
+      if (document.visibilityState === "visible") {
+        initializeData();
+      }
+    };
+    const intervalId = window.setInterval(refreshDashboardData, 15000);
+
+    window.addEventListener("focus", refreshDashboardData);
+    document.addEventListener("visibilitychange", refreshDashboardData);
+
+    return () => {
+      window.clearInterval(intervalId);
+      window.removeEventListener("focus", refreshDashboardData);
+      document.removeEventListener("visibilitychange", refreshDashboardData);
+    };
+  }, [initializeData, mode]);
+
   let screen = <ScenarioDashboard />;
 
   if (mode === "table") screen = <PokerTable />;
