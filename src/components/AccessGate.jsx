@@ -5,6 +5,7 @@ import {
   clearStoredAuthSession,
   setStoredAuthSession,
 } from "../lib/authStorage";
+import { syncCurrentUserProfile } from "../lib/userProfile";
 import { Button } from "./ui/button";
 
 function getDisplayName(user) {
@@ -24,6 +25,15 @@ function persistVerifiedSession({ accessToken, refreshToken, user }) {
     email: user.email ?? "",
     name: getDisplayName(user),
     verifiedAt: new Date().toISOString(),
+  });
+}
+
+async function syncAndPersistSession(session) {
+  await syncCurrentUserProfile();
+  persistVerifiedSession({
+    accessToken: session.access_token,
+    refreshToken: session.refresh_token,
+    user: session.user,
   });
 }
 
@@ -63,11 +73,7 @@ export default function AccessGate({
         if (error) throw error;
 
         if (data.session?.user) {
-          persistVerifiedSession({
-            accessToken: data.session.access_token,
-            refreshToken: data.session.refresh_token,
-            user: data.session.user,
-          });
+          await syncAndPersistSession(data.session);
           if (mounted) setStatus("accepted");
           return;
         }
@@ -89,16 +95,24 @@ export default function AccessGate({
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, session) => {
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!mounted) return;
 
       if (session?.user) {
-        persistVerifiedSession({
-          accessToken: session.access_token,
-          refreshToken: session.refresh_token,
-          user: session.user,
-        });
-        setStatus("accepted");
+        try {
+          await syncAndPersistSession(session);
+          if (mounted) setStatus("accepted");
+        } catch (error) {
+          console.error("Could not sync authenticated profile.", error);
+          if (mounted) {
+            setErrorMessage(
+              error instanceof Error
+                ? error.message
+                : "Could not sync your user profile.",
+            );
+            setStatus("ready");
+          }
+        }
         return;
       }
 
@@ -165,11 +179,7 @@ export default function AccessGate({
         );
       }
 
-      persistVerifiedSession({
-        accessToken: data.session.access_token,
-        refreshToken: data.session.refresh_token,
-        user: data.session.user,
-      });
+      await syncAndPersistSession(data.session);
       setStatus("accepted");
     } catch (error) {
       setErrorMessage(

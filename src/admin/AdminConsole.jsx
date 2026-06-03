@@ -613,8 +613,8 @@ export default function AdminConsole() {
                     Assign a challenge to a user.
                   </h2>
                   <p className="mt-3 max-w-3xl text-sm leading-6 text-white/62">
-                    Search profiles by email or name, select a user, then assign
-                    the selected challenge. It appears on that user's dashboard.
+                    Search Supabase users by email or name, select a user, then
+                    assign the selected challenge. It appears on that user's dashboard.
                   </p>
 
                   <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">

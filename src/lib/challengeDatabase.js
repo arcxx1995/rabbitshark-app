@@ -237,6 +237,20 @@ export async function searchProfiles(query) {
 
   if (normalizedQuery.length < 2) return [];
 
+  const { data: rpcData, error: rpcError } = await client.rpc(
+    "search_assignable_users",
+    {
+      profile_query: normalizedQuery,
+      result_limit: 8,
+    },
+  );
+
+  if (!rpcError) {
+    return (rpcData ?? []).sort(exactEmailFirst(query));
+  }
+
+  console.error("Could not search assignable users through RPC.", rpcError);
+
   const { data, error } = await client
     .from("profiles")
     .select("id,email,display_name,created_at")
