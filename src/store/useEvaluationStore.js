@@ -105,9 +105,10 @@ export const useEvaluationStore = create(
   pastChallenges: [],
   stats: initialStats,
   isLoadingData: false,
+  challengeDataError: null,
 
   initializeData: async () => {
-    set({ isLoadingData: true });
+    set({ isLoadingData: true, challengeDataError: null });
 
     try {
       const [assignedChallenges, pastDatabaseChallenges] = await Promise.all([
@@ -150,6 +151,7 @@ export const useEvaluationStore = create(
           decisionTimerRunning: false,
           feedbackVisible: false,
           isLoadingData: false,
+          challengeDataError: null,
         });
         return;
       }
@@ -174,10 +176,18 @@ export const useEvaluationStore = create(
         decisionTimerRunning: false,
         feedbackVisible: false,
         isLoadingData: false,
+        challengeDataError: null,
       });
       return;
     } catch (error) {
       console.error("Could not load assigned database challenges.", error);
+
+      set({
+        challengeDataError:
+          error instanceof Error
+            ? error.message
+            : "Could not load assigned database challenges.",
+      });
     }
 
     const activeEvaluation = getActiveEvaluation();

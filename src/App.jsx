@@ -3,6 +3,7 @@ import AccessGate from "./components/AccessGate";
 import EvaluationSummary from "./components/EvaluationSummary";
 import PokerTable from "./components/PokerTable";
 import ScenarioDashboard from "./components/ScenarioDashboard";
+import { supabase } from "./lib/supabaseClient";
 import { useEvaluationStore } from "./store/useEvaluationStore";
 
 export default function App() {
@@ -38,6 +39,47 @@ function AppScreens() {
       window.clearInterval(intervalId);
       window.removeEventListener("focus", refreshDashboardData);
       document.removeEventListener("visibilitychange", refreshDashboardData);
+    };
+  }, [initializeData, mode]);
+
+  useEffect(() => {
+    if (mode !== "dashboard" || !supabase) return undefined;
+
+    let active = true;
+    let assignmentChannel = null;
+
+    async function subscribeToAssignments() {
+      const { data } = await supabase.auth.getSession();
+      const userId = data.session?.user?.id;
+
+      if (!active || !userId) return;
+
+      assignmentChannel = supabase
+        .channel(`user-challenges-${userId}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "user_challenges",
+            filter: `user_id=eq.${userId}`,
+          },
+          () => {
+            if (document.visibilityState === "visible") {
+              initializeData();
+            }
+          },
+        )
+        .subscribe();
+    }
+
+    subscribeToAssignments();
+
+    return () => {
+      active = false;
+      if (assignmentChannel) {
+        supabase.removeChannel(assignmentChannel);
+      }
     };
   }, [initializeData, mode]);
 

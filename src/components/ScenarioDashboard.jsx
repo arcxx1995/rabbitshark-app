@@ -8,6 +8,7 @@ import {
   LayoutDashboard,
   LogOut,
   Play,
+  RefreshCw,
   ShieldCheck,
   Trophy,
   XCircle,
@@ -43,11 +44,13 @@ const formatDateTime = (value) => {
 export default function ScenarioDashboard() {
   const [activeScreen, setActiveScreen] = useState("dashboard");
   const [pendingChallengeStart, setPendingChallengeStart] = useState(null);
+  const initializeData = useEvaluationStore((state) => state.initializeData);
   const startEvaluation = useEvaluationStore((state) => state.startEvaluation);
   const currentChallenge = useEvaluationStore((state) => state.currentChallenge);
   const storedActiveChallenges = useEvaluationStore((state) => state.activeChallenges);
   const pastChallenges = useEvaluationStore((state) => state.pastChallenges);
   const isLoadingData = useEvaluationStore((state) => state.isLoadingData);
+  const challengeDataError = useEvaluationStore((state) => state.challengeDataError);
   const stats = useEvaluationStore((state) => state.stats);
   const totalPossible = useEvaluationStore((state) => state.getTotalPossibleScore());
   const fundedThresholdPoints = useEvaluationStore((state) =>
@@ -209,6 +212,11 @@ export default function ScenarioDashboard() {
                 </Badge>
                 <Badge>No real-money play</Badge>
                 {isLoadingData ? <Badge>Loading data</Badge> : null}
+                {challengeDataError ? (
+                  <Badge className="border-red-300/30 text-red-100">
+                    Sync failed
+                  </Badge>
+                ) : null}
               </div>
               <h1 className="mt-3 font-display text-2xl font-black tracking-tight sm:text-3xl">
                 {screenTitle}
@@ -226,12 +234,27 @@ export default function ScenarioDashboard() {
                   Start
                 </Button>
               ) : null}
+              <Button
+                className="h-10 px-4 text-xs"
+                variant="secondary"
+                onClick={initializeData}
+                disabled={isLoadingData}
+              >
+                <RefreshCw className="mr-2 h-4 w-4" />
+                Sync
+              </Button>
               <Button className="h-10 px-4 text-xs" variant="danger" onClick={logout}>
                 <LogOut className="mr-2 h-4 w-4" />
                 Log Out
               </Button>
             </div>
           </header>
+
+          {challengeDataError ? (
+            <div className="shrink-0 rounded-lg border border-red-300/25 bg-red-500/10 px-4 py-3 text-sm text-red-100">
+              Could not sync challenge assignments: {challengeDataError}
+            </div>
+          ) : null}
 
           <section className="grid shrink-0 gap-3 md:grid-cols-3">
             {metrics.map((metric) => {
