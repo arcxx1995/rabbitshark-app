@@ -389,14 +389,128 @@ export default function ScenarioDashboard() {
                     <div className="flex items-start justify-between gap-4">
                       <div>
                         <CardTitle className="text-2xl sm:text-3xl">
-                          Past Challenge Buckets
+                          Challenge Buckets
                         </CardTitle>
                         <p className="mt-2 max-w-2xl text-sm leading-6 text-white/58">
-                          Review completed challenge outcomes.
+                          View assigned challenges and completed outcomes.
                         </p>
                       </div>
-                      <Badge>{pastChallenges.length} complete</Badge>
+                      <div className="flex shrink-0 flex-wrap gap-2">
+                        <Badge>{activeChallenges.length} active</Badge>
+                        <Badge>{pastChallenges.length} complete</Badge>
+                      </div>
                     </div>
+
+                    <div className="mt-6">
+                      <div className="mb-3 flex items-center justify-between gap-3">
+                        <h3 className="font-display text-lg font-bold">
+                          Active Challenges
+                        </h3>
+                        <Badge>{activeChallenges.length} active</Badge>
+                      </div>
+                      {activeChallenges.length === 0 ? (
+                        <div className="rounded-lg border border-dashed border-white/12 bg-black/14 p-5">
+                          <div className="font-display text-lg font-bold text-white/80">
+                            No assigned challenge
+                          </div>
+                          <p className="mt-2 text-sm text-white/50">
+                            A developer assignment appears here after the dashboard
+                            syncs with the database.
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="grid gap-3 md:grid-cols-2">
+                          {activeChallenges.map((challenge) => {
+                            const isCurrentChallenge =
+                              currentChallenge?.id === challenge.id;
+                            const questionCount =
+                              challenge.evaluation?.questionCount ??
+                              challenge.evaluation?.questions?.length ??
+                              25;
+                            const progressCount = isCurrentChallenge
+                              ? completedCount
+                              : challenge.currentQuestionIndex ??
+                                challenge.progressResults?.length ??
+                                0;
+                            const currentPoints = isCurrentChallenge
+                              ? stats.totalScore
+                              : challenge.earnedPoints;
+                            const challengeStatus = isCurrentChallenge
+                              ? status
+                              : challenge.status;
+
+                            return (
+                              <div
+                                key={challenge.id}
+                                className="rounded-lg border border-green/25 bg-black/60 p-4"
+                              >
+                                <div className="flex items-start justify-between gap-3">
+                                  <div className="min-w-0">
+                                    <div className="break-words font-display text-lg font-bold text-white">
+                                      {challenge.title}
+                                    </div>
+                                    <div className="mt-1 flex items-center gap-2 text-xs text-white/45">
+                                      <Clock3 className="h-3.5 w-3.5" />
+                                      Assigned {formatDate(challenge.purchasedAt)}
+                                    </div>
+                                    {challenge.assignmentCode ? (
+                                      <div className="mt-2 inline-flex rounded-md border border-green/35 bg-green/10 px-2 py-1 font-display text-xs font-black tracking-[0.12em] text-green">
+                                        #{challenge.assignmentCode}
+                                      </div>
+                                    ) : null}
+                                  </div>
+                                  <Badge className="border-green/45 text-green">
+                                    {challengeStatus}
+                                  </Badge>
+                                </div>
+                                {challenge.isTestAssignment ? (
+                                  <div className="mt-3 flex flex-wrap gap-2">
+                                    <Badge className="border-yellow-200/45 text-yellow-100">
+                                      Testing Replica
+                                    </Badge>
+                                    <Badge>Resettable in admin</Badge>
+                                  </div>
+                                ) : null}
+                                <div className="mt-4 grid grid-cols-3 gap-2">
+                                  {[
+                                    ["Progress", `${progressCount}/${questionCount}`],
+                                    ["Current", `${currentPoints} pts`],
+                                    ["Target", `${fundedThresholdPoints} pts`],
+                                  ].map(([label, value]) => (
+                                    <div
+                                      key={label}
+                                      className="rounded-lg border border-white/10 bg-black/60 p-3"
+                                    >
+                                      <div className="text-[11px] font-bold uppercase tracking-[0.12em] text-white/35">
+                                        {label}
+                                      </div>
+                                      <div className="mt-1 font-display text-lg font-black text-green">
+                                        {value}
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                                <Button
+                                  className="mt-4 h-10 w-full px-4 text-xs"
+                                  onClick={() => startChallengeFromDashboard(challenge)}
+                                >
+                                  <Play className="mr-2 h-4 w-4" />
+                                  Continue Challenge
+                                </Button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="mt-8">
+                      <div className="mb-3 flex items-center justify-between gap-3">
+                        <h3 className="font-display text-lg font-bold">
+                          Past Challenge Buckets
+                        </h3>
+                        <Badge>{pastChallenges.length} complete</Badge>
+                      </div>
                     <div className="mt-6 grid gap-3">
                       {pastChallenges.length === 0 ? (
                         <div className="rounded-lg border border-dashed border-white/12 bg-black/14 p-6 text-sm text-white/48">
@@ -454,6 +568,7 @@ export default function ScenarioDashboard() {
                           </div>
                         ))
                       )}
+                    </div>
                     </div>
                   </div>
                 ) : (
