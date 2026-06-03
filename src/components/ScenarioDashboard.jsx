@@ -3,7 +3,6 @@ import { motion } from "framer-motion";
 import {
   BarChart3,
   CheckCircle2,
-  ChevronDown,
   ClipboardList,
   Clock3,
   LayoutDashboard,
@@ -30,39 +29,19 @@ const formatDate = (value) => {
   });
 };
 
-function ChallengeScoreRows({ challenge }) {
-  const scenarioResults = challenge.scenarioResults ?? [];
-
-  if (scenarioResults.length === 0) {
-    return (
-      <div className="rounded-lg border border-dashed border-white/12 bg-black/14 p-4 text-sm text-white/45">
-        Score details will appear here for newly completed challenges.
-      </div>
-    );
-  }
-
-  return (
-    <div className="grid max-h-64 gap-2 overflow-auto pr-1 sm:grid-cols-2">
-      {scenarioResults.map((scenario) => (
-        <div key={scenario.id} className="rounded-lg border border-white/10 bg-black/60 p-3">
-          <div className="truncate text-sm font-bold text-white/78">
-            {scenario.title}
-          </div>
-          <div className="mt-2 flex items-center justify-between gap-3">
-            <span className="text-xs text-white/45">{scenario.selectedAction}</span>
-            <span className="font-display text-sm font-black text-green">
-              {scenario.points}/{scenario.maxPoints}
-            </span>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
+const formatDateTime = (value) => {
+  if (!value) return "Not available";
+  return new Date(value).toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+};
 
 export default function ScenarioDashboard() {
   const [activeScreen, setActiveScreen] = useState("dashboard");
-  const [expandedChallengeId, setExpandedChallengeId] = useState(null);
   const [pendingChallengeStart, setPendingChallengeStart] = useState(null);
   const startEvaluation = useEvaluationStore((state) => state.startEvaluation);
   const currentChallenge = useEvaluationStore((state) => state.currentChallenge);
@@ -413,8 +392,7 @@ export default function ScenarioDashboard() {
                           Past Challenge Buckets
                         </CardTitle>
                         <p className="mt-2 max-w-2xl text-sm leading-6 text-white/58">
-                          Review completed challenge outcomes and expand each bucket
-                          for scored decision points.
+                          Review completed challenge outcomes.
                         </p>
                       </div>
                       <Badge>{pastChallenges.length} complete</Badge>
@@ -425,40 +403,28 @@ export default function ScenarioDashboard() {
                           No past challenges yet.
                         </div>
                       ) : (
-                        pastChallenges.map((challenge) => {
-                          const expanded = expandedChallengeId === challenge.id;
-
-                          return (
+                        pastChallenges.map((challenge) => (
                           <div
                             key={challenge.id}
                             className="rounded-lg border border-white/10 bg-black/20 p-4"
                           >
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setExpandedChallengeId(expanded ? null : challenge.id)
-                              }
-                              className="flex w-full items-center justify-between gap-4 text-left"
-                            >
-                              <div>
-                                <div className="font-display text-lg font-bold">
-                                  {challenge.title}
+                            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                              <div className="min-w-0">
+                                <div className="break-words font-display text-lg font-bold text-white">
+                                  {challenge.assignmentCode
+                                    ? `${challenge.title} #${challenge.assignmentCode}`
+                                    : challenge.title}
                                 </div>
                                 <div className="mt-1 text-xs text-white/45">
-                                  Completed {formatDate(challenge.completedAt)}
+                                  Completed on {formatDateTime(challenge.completedAt)}
                                 </div>
-                                {challenge.assignmentCode ? (
-                                  <div className="mt-2 inline-flex rounded-md border border-green/35 bg-green/10 px-2 py-1 font-display text-xs font-black tracking-[0.12em] text-green">
-                                    #{challenge.assignmentCode}
-                                  </div>
-                                ) : null}
                               </div>
-                              <div className="flex items-center gap-3">
+                              <div className="flex shrink-0 items-center gap-3">
                                 <div className="text-right">
-                                  <div className="font-display text-xl font-black text-green">
-                                    {challenge.score}%
+                                  <div className="text-[11px] font-bold uppercase tracking-[0.12em] text-white/35">
+                                    Points Scored
                                   </div>
-                                  <div className="text-xs text-white/45">
+                                  <div className="font-display text-lg font-black text-green">
                                     {challenge.earnedPoints}/{challenge.totalPossiblePoints} pts
                                   </div>
                                 </div>
@@ -471,22 +437,10 @@ export default function ScenarioDashboard() {
                                 >
                                   {challenge.status}
                                 </Badge>
-                                <ChevronDown
-                                  className={[
-                                    "h-5 w-5 text-white/45 transition",
-                                    expanded ? "rotate-180" : "",
-                                  ].join(" ")}
-                                />
                               </div>
-                            </button>
-                            {expanded ? (
-                              <div className="mt-4 border-t border-white/10 pt-4">
-                                <ChallengeScoreRows challenge={challenge} />
-                              </div>
-                            ) : null}
+                            </div>
                           </div>
-                          );
-                        })
+                        ))
                       )}
                     </div>
                   </div>
