@@ -114,6 +114,8 @@ export default function AdminConsole() {
   const [userResults, setUserResults] = useState([]);
   const [userSearchLoading, setUserSearchLoading] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
+  const [assignmentPending, setAssignmentPending] = useState(false);
+  const [assignmentReceipt, setAssignmentReceipt] = useState(null);
   const [activeSection, setActiveSection] = useState("challenges");
   const [assignmentLookupMode, setAssignmentLookupMode] = useState("email");
   const [assignmentLookupEmail, setAssignmentLookupEmail] = useState("");
@@ -131,6 +133,10 @@ export default function AdminConsole() {
   const selectedChallenge = useMemo(() => {
     return challenges.find((challenge) => challenge.id === selectedChallengeId);
   }, [challenges, selectedChallengeId]);
+
+  useEffect(() => {
+    setAssignmentReceipt(null);
+  }, [selectedChallengeId, selectedUser?.id]);
 
   async function loadAdminData() {
     setLoading(true);
@@ -334,10 +340,33 @@ export default function AdminConsole() {
       return;
     }
 
+    setAssignmentPending(true);
+    setAssignmentReceipt(null);
+
     try {
       const assignment = await assignChallengeToUser({
         challengeId: selectedChallenge.id,
         userId: selectedUser.id,
+      });
+      const [verifiedAssignment] = await searchAssignmentByCode(
+        assignment.assignment_code,
+      );
+
+      if (
+        !verifiedAssignment ||
+        verifiedAssignment.user_id !== selectedUser.id ||
+        verifiedAssignment.challenge_id !== selectedChallenge.id
+      ) {
+        throw new Error("Assignment was created but could not be verified.");
+      }
+
+      setAssignmentReceipt({
+        assignmentCode: verifiedAssignment.assignment_code,
+        challengeName:
+          verifiedAssignment.challenges?.name ?? selectedChallenge.name,
+        userEmail: selectedUser.email,
+        assignedAt: verifiedAssignment.assigned_at,
+        status: verifiedAssignment.status,
       });
 
       setMessage({
@@ -352,6 +381,8 @@ export default function AdminConsole() {
             ? error.message
             : "Could not assign challenge.",
       });
+    } finally {
+      setAssignmentPending(false);
     }
   };
 
@@ -617,7 +648,19 @@ export default function AdminConsole() {
                           <input
                             className="min-w-0 flex-1 bg-transparent text-sm text-green outline-none placeholder:text-white/35"
                             value={userQuery}
-                            onChange={(event) => setUserQuery(event.target.value)}
+                            onChange={(event) => {
+                              const nextQuery = event.target.value;
+                              setUserQuery(nextQuery);
+                              setAssignmentReceipt(null);
+
+                              if (
+                                selectedUser &&
+                                nextQuery.trim().toLowerCase() !==
+                                  selectedUser.email?.toLowerCase()
+                              ) {
+                                setSelectedUser(null);
+                              }
+                            }}
                             placeholder="developer@example.com"
                           />
                         </div>
@@ -646,7 +689,11 @@ export default function AdminConsole() {
                                 ? "border-green bg-green/10"
                                 : "border-white/10 bg-white/5 hover:border-white/20",
                             ].join(" ")}
-                            onClick={() => setSelectedUser(user)}
+                            onClick={() => {
+                              setSelectedUser(user);
+                              setUserQuery(user.email ?? "");
+                              setAssignmentReceipt(null);
+                            }}
                           >
                             <div className="font-bold text-green">{user.email}</div>
                             <div className="mt-1 text-xs text-white/45">
@@ -662,10 +709,44 @@ export default function AdminConsole() {
                         </div>
                       ) : null}
 
-                      <Button className="mt-4 w-full" onClick={handleAssignChallenge}>
-                        <UserPlus className="mr-2 h-5 w-5" />
-                        Assign Challenge
-                      </Button>
+                      <div className="mt-4 grid gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+                        <Button
+                          className="h-full min-h-12 w-full"
+                          onClick={handleAssignChallenge}
+                          disabled={!selectedChallenge || !selectedUser || assignmentPending}
+                        >
+                          {assignmentPending ? (
+                            <RefreshCw className="mr-2 h-5 w-5 animate-spin" />
+                          ) : (
+                            <UserPlus className="mr-2 h-5 w-5" />
+                          )}
+                          {assignmentPending ? "Assigning" : "Assign Challenge"}
+                        </Button>
+                        {assignmentReceipt ? (
+                          <div className="rounded-xl border border-green/30 bg-green/10 p-3 text-sm leading-5 text-green">
+                            <div className="font-bold">
+                              Assigned #{assignmentReceipt.assignmentCode}
+                            </div>
+                            <div className="mt-1 text-xs text-white/60">
+                              {assignmentReceipt.challengeName}
+                            </div>
+                            <div className="mt-1 text-xs text-white/60">
+                              {assignmentReceipt.userEmail}
+                            </div>
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              <Badge className={getStatusBadgeClass(assignmentReceipt.status)}>
+                                {assignmentReceipt.status}
+                              </Badge>
+                              <Badge>{formatDateTime(assignmentReceipt.assignedAt)}</Badge>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="rounded-xl border border-white/10 bg-white/5 p-3 text-xs leading-5 text-white/45">
+                            Select exactly one user and challenge. The assignment
+                            number appears here after DB verification.
+                          </div>
+                        )}
+                      </div>
                     </div>
 
                     <div className="rounded-[1.5rem] border border-white/10 bg-white/[0.04] p-5">
