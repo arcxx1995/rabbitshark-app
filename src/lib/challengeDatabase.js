@@ -105,6 +105,14 @@ const ASSIGNMENT_LOOKUP_SELECT = `
   )
 `;
 
+async function getCurrentUser(client) {
+  const { data: userData, error: userError } = await client.auth.getUser();
+
+  if (userError) throw userError;
+
+  return userData.user ?? null;
+}
+
 async function addAssignedByProfiles(client, assignments) {
   const assignedByIds = [
     ...new Set(
@@ -138,6 +146,18 @@ async function addAssignedByProfiles(client, assignments) {
   }));
 }
 
+export async function getCurrentChallengeUser() {
+  const client = requireSupabase();
+  const user = await getCurrentUser(client);
+
+  if (!user) return null;
+
+  return {
+    id: user.id,
+    email: user.email ?? "",
+  };
+}
+
 export async function listDatabaseEvaluationFiles() {
   const client = requireSupabase();
   const { data, error } = await client
@@ -153,9 +173,7 @@ export async function listDatabaseEvaluationFiles() {
 export async function saveEvaluationFileToDatabase(evaluationFile) {
   const client = requireSupabase();
   const normalizedEvaluation = resolveEvaluationFile(evaluationFile);
-  const { data: userData, error: userError } = await client.auth.getUser();
-
-  if (userError) throw userError;
+  const user = await getCurrentUser(client);
 
   const { data, error } = await client
     .from("evaluation_files")
@@ -170,7 +188,7 @@ export async function saveEvaluationFileToDatabase(evaluationFile) {
         funded_threshold_percent: normalizedEvaluation.fundedThresholdPercent,
         total_possible_points: normalizedEvaluation.totalPossiblePoints,
         evaluation_json: evaluationFile,
-        created_by: userData.user?.id,
+        created_by: user?.id,
       },
       { onConflict: "slug" },
     )
@@ -196,16 +214,14 @@ export async function listDatabaseChallenges() {
 
 export async function createChallengeForEvaluation({ name, evaluationFileId }) {
   const client = requireSupabase();
-  const { data: userData, error: userError } = await client.auth.getUser();
-
-  if (userError) throw userError;
+  const user = await getCurrentUser(client);
 
   const { data, error } = await client
     .from("challenges")
     .insert({
       name,
       evaluation_file_id: evaluationFileId,
-      created_by: userData.user?.id,
+      created_by: user?.id,
     })
     .select("*, evaluation_files(*)")
     .single();
@@ -344,10 +360,9 @@ export async function checkChallengeSystemHealth() {
 
 export async function getAssignedChallengesForCurrentUser() {
   const client = requireSupabase();
-  const { data: userData, error: userError } = await client.auth.getUser();
+  const user = await getCurrentUser(client);
 
-  if (userError) throw userError;
-  if (!userData.user?.id) return [];
+  if (!user?.id) return [];
 
   const { data, error } = await client
     .from("user_challenges")
@@ -360,7 +375,7 @@ export async function getAssignedChallengesForCurrentUser() {
         )
       `,
     )
-    .eq("user_id", userData.user.id)
+    .eq("user_id", user.id)
     .in("status", ["assigned", "active"])
     .order("assigned_at", { ascending: false });
 
@@ -371,10 +386,9 @@ export async function getAssignedChallengesForCurrentUser() {
 
 export async function getPastChallengesForCurrentUser() {
   const client = requireSupabase();
-  const { data: userData, error: userError } = await client.auth.getUser();
+  const user = await getCurrentUser(client);
 
-  if (userError) throw userError;
-  if (!userData.user?.id) return [];
+  if (!user?.id) return [];
 
   const { data, error } = await client
     .from("user_challenges")
@@ -387,7 +401,7 @@ export async function getPastChallengesForCurrentUser() {
         )
       `,
     )
-    .eq("user_id", userData.user.id)
+    .eq("user_id", user.id)
     .in("status", ["completed", "failed"])
     .order("completed_at", { ascending: false, nullsFirst: false });
 

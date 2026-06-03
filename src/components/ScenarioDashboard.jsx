@@ -51,6 +51,11 @@ export default function ScenarioDashboard() {
   const pastChallenges = useEvaluationStore((state) => state.pastChallenges);
   const isLoadingData = useEvaluationStore((state) => state.isLoadingData);
   const challengeDataError = useEvaluationStore((state) => state.challengeDataError);
+  const challengeDataUser = useEvaluationStore((state) => state.challengeDataUser);
+  const lastChallengeSyncAt = useEvaluationStore((state) => state.lastChallengeSyncAt);
+  const lastActiveChallengeCount = useEvaluationStore(
+    (state) => state.lastActiveChallengeCount,
+  );
   const stats = useEvaluationStore((state) => state.stats);
   const totalPossible = useEvaluationStore((state) => state.getTotalPossibleScore());
   const fundedThresholdPoints = useEvaluationStore((state) =>
@@ -217,6 +222,12 @@ export default function ScenarioDashboard() {
                     Sync failed
                   </Badge>
                 ) : null}
+                {challengeDataUser?.email ? (
+                  <Badge>Signed in: {challengeDataUser.email}</Badge>
+                ) : null}
+                {lastChallengeSyncAt ? (
+                  <Badge>{lastActiveChallengeCount} DB active</Badge>
+                ) : null}
               </div>
               <h1 className="mt-3 font-display text-2xl font-black tracking-tight sm:text-3xl">
                 {screenTitle}
@@ -253,6 +264,15 @@ export default function ScenarioDashboard() {
           {challengeDataError ? (
             <div className="shrink-0 rounded-lg border border-red-300/25 bg-red-500/10 px-4 py-3 text-sm text-red-100">
               Could not sync challenge assignments: {challengeDataError}
+            </div>
+          ) : lastChallengeSyncAt ? (
+            <div className="shrink-0 rounded-lg border border-white/10 bg-black/18 px-4 py-3 text-xs text-white/52">
+              Last sync {formatDateTime(lastChallengeSyncAt)}
+              {challengeDataUser?.email
+                ? ` as ${challengeDataUser.email}`
+                : " with no signed-in Supabase user"}
+              . Loaded {lastActiveChallengeCount} active database assignment
+              {lastActiveChallengeCount === 1 ? "" : "s"}.
             </div>
           ) : null}
 
@@ -323,6 +343,13 @@ export default function ScenarioDashboard() {
                             A developer must assign a database challenge to your
                             account before it appears here.
                           </p>
+                          {lastChallengeSyncAt ? (
+                            <p className="mt-3 text-xs text-white/42">
+                              Last sync used{" "}
+                              {challengeDataUser?.email ?? "no signed-in account"} and
+                              loaded {lastActiveChallengeCount} active DB assignments.
+                            </p>
+                          ) : null}
                         </div>
                       ) : (
                         <div className="grid max-h-[48vh] gap-3 overflow-auto pr-1 md:grid-cols-2">
@@ -440,6 +467,13 @@ export default function ScenarioDashboard() {
                             A developer assignment appears here after the dashboard
                             syncs with the database.
                           </p>
+                          {lastChallengeSyncAt ? (
+                            <p className="mt-3 text-xs text-white/42">
+                              Last sync used{" "}
+                              {challengeDataUser?.email ?? "no signed-in account"} and
+                              loaded {lastActiveChallengeCount} active DB assignments.
+                            </p>
+                          ) : null}
                         </div>
                       ) : (
                         <div className="grid gap-3 md:grid-cols-2">

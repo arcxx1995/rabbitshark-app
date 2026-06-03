@@ -8,6 +8,7 @@ import {
 } from "../engine/evaluationEngine";
 import {
   completeAssignedChallenge,
+  getCurrentChallengeUser,
   getAssignedChallengesForCurrentUser,
   getPastChallengesForCurrentUser,
   markAssignedChallengeStarted,
@@ -115,21 +116,29 @@ export const useEvaluationStore = create(
   stats: initialStats,
   isLoadingData: false,
   challengeDataError: null,
+  challengeDataUser: null,
+  lastChallengeSyncAt: null,
+  lastActiveChallengeCount: 0,
 
   initializeData: async () => {
     set({ isLoadingData: true, challengeDataError: null });
 
+    let challengeDataUser = null;
     let assignedChallenges = [];
     let pastDatabaseChallenges = [];
     let pastChallengeError = null;
 
     try {
+      challengeDataUser = await getCurrentChallengeUser();
       assignedChallenges = await getAssignedChallengesForCurrentUser();
     } catch (error) {
       console.error("Could not load assigned database challenges.", error);
 
       set({
         isLoadingData: false,
+        challengeDataUser,
+        lastChallengeSyncAt: new Date().toISOString(),
+        lastActiveChallengeCount: 0,
         challengeDataError: getErrorMessage(
           error,
           "Could not load assigned database challenges.",
@@ -185,6 +194,9 @@ export const useEvaluationStore = create(
           feedbackVisible: false,
           isLoadingData: false,
           challengeDataError: pastChallengeError,
+          challengeDataUser,
+          lastChallengeSyncAt: new Date().toISOString(),
+          lastActiveChallengeCount: assignedChallenges.length,
         });
         return;
       }
@@ -210,6 +222,9 @@ export const useEvaluationStore = create(
         feedbackVisible: false,
         isLoadingData: false,
         challengeDataError: pastChallengeError,
+        challengeDataUser,
+        lastChallengeSyncAt: new Date().toISOString(),
+        lastActiveChallengeCount: assignedChallenges.length,
       });
       return;
     } catch (error) {
@@ -217,6 +232,9 @@ export const useEvaluationStore = create(
 
       set({
         isLoadingData: false,
+        challengeDataUser,
+        lastChallengeSyncAt: new Date().toISOString(),
+        lastActiveChallengeCount: assignedChallenges.length,
         challengeDataError: getErrorMessage(
           error,
           "Could not prepare assigned database challenges.",
