@@ -62,6 +62,15 @@ const createStatsFromResults = (results = []) => ({
   completedScenarios: results,
 });
 
+const getErrorMessage = (error, fallback) => {
+  if (error instanceof Error) return error.message;
+  if (error && typeof error === "object" && "message" in error) {
+    return String(error.message);
+  }
+
+  return fallback;
+};
+
 const getCompletedEntry = (scenario, option, timedOut = false) => {
   const maxPoints = scenario.points ?? 100;
   const earnedPoints = timedOut ? 0 : roundScore((maxPoints * option.points) / 100);
@@ -110,12 +119,36 @@ export const useEvaluationStore = create(
   initializeData: async () => {
     set({ isLoadingData: true, challengeDataError: null });
 
-    try {
-      const [assignedChallenges, pastDatabaseChallenges] = await Promise.all([
-        getAssignedChallengesForCurrentUser(),
-        getPastChallengesForCurrentUser(),
-      ]);
+    let assignedChallenges = [];
+    let pastDatabaseChallenges = [];
+    let pastChallengeError = null;
 
+    try {
+      assignedChallenges = await getAssignedChallengesForCurrentUser();
+    } catch (error) {
+      console.error("Could not load assigned database challenges.", error);
+
+      set({
+        isLoadingData: false,
+        challengeDataError: getErrorMessage(
+          error,
+          "Could not load assigned database challenges.",
+        ),
+      });
+      return;
+    }
+
+    try {
+      pastDatabaseChallenges = await getPastChallengesForCurrentUser();
+    } catch (error) {
+      console.error("Could not load past database challenges.", error);
+      pastChallengeError = getErrorMessage(
+        error,
+        "Could not load past database challenges.",
+      );
+    }
+
+    try {
       if (assignedChallenges.length > 0) {
         const currentChallenge = assignedChallenges[0];
         const activeEvaluation = currentChallenge.evaluation;
@@ -151,7 +184,7 @@ export const useEvaluationStore = create(
           decisionTimerRunning: false,
           feedbackVisible: false,
           isLoadingData: false,
-          challengeDataError: null,
+          challengeDataError: pastChallengeError,
         });
         return;
       }
@@ -176,32 +209,21 @@ export const useEvaluationStore = create(
         decisionTimerRunning: false,
         feedbackVisible: false,
         isLoadingData: false,
-        challengeDataError: null,
+        challengeDataError: pastChallengeError,
       });
       return;
     } catch (error) {
-      console.error("Could not load assigned database challenges.", error);
+      console.error("Could not prepare assigned database challenges.", error);
 
       set({
-        challengeDataError:
-          error instanceof Error
-            ? error.message
-            : "Could not load assigned database challenges.",
+        isLoadingData: false,
+        challengeDataError: getErrorMessage(
+          error,
+          "Could not prepare assigned database challenges.",
+        ),
       });
+      return;
     }
-
-    const activeEvaluation = getActiveEvaluation();
-    const scenarios = activeEvaluation.questions;
-
-    set({
-      evaluations: getEvaluationFiles(),
-      activeEvaluation,
-      scenarios,
-      scenarioCategories: getScenarioCategories(scenarios),
-      currentScenario: scenarios[0],
-      currentStreet: scenarios[0].street,
-      isLoadingData: false,
-    });
   },
 
   setCategory: (category) => {
