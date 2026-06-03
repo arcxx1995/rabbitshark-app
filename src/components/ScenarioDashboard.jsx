@@ -411,11 +411,23 @@ export default function ScenarioDashboard() {
                             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                               <div className="min-w-0">
                                 <div className="break-words font-display text-lg font-bold text-white">
-                                  {challenge.assignmentCode
-                                    ? `${challenge.title} #${challenge.assignmentCode}`
-                                    : challenge.title}
+                                  {challenge.title}
                                 </div>
-                                <div className="mt-1 text-xs text-white/45">
+                                <div className="mt-2 flex flex-wrap items-center gap-2">
+                                  <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-white/35">
+                                    Code
+                                  </span>
+                                  {challenge.assignmentCode ? (
+                                    <span className="inline-flex rounded-md border border-green/35 bg-green/10 px-2 py-1 font-display text-xs font-black tracking-[0.12em] text-green">
+                                      #{challenge.assignmentCode}
+                                    </span>
+                                  ) : (
+                                    <span className="text-xs font-bold text-white/45">
+                                      Not available
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="mt-2 text-xs text-white/45">
                                   Completed on {formatDateTime(challenge.completedAt)}
                                 </div>
                               </div>

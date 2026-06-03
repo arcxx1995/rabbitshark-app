@@ -428,9 +428,14 @@ export const useEvaluationStore = create(
           }
         : null;
 
+      let syncedPastChallenges = completedChallenge
+        ? [completedChallenge, ...pastChallenges]
+        : pastChallenges;
+
       if (completedChallenge?.dbBacked && completedChallenge.assignmentId) {
         try {
           await completeAssignedChallenge(completedChallenge.assignmentId, completedChallenge);
+          syncedPastChallenges = await getPastChallengesForCurrentUser();
         } catch (error) {
           console.error("Could not save assigned challenge result.", error);
         }
@@ -446,9 +451,7 @@ export const useEvaluationStore = create(
         hasPurchasedChallenge: remainingActiveChallenges.length > 0,
         currentChallenge: remainingActiveChallenges[0] ?? null,
         activeChallenges: remainingActiveChallenges,
-        pastChallenges: completedChallenge
-          ? [completedChallenge, ...pastChallenges]
-          : pastChallenges,
+        pastChallenges: syncedPastChallenges,
       });
 
       return;
