@@ -528,11 +528,15 @@ export const useEvaluationStore = create(
     },
   }), {
     name: "rabbitshark.challengeState",
+    version: 2,
+    migrate: (persistedState) => ({
+      ...persistedState,
+      pastChallenges: [],
+    }),
     partialize: (state) => ({
       hasPurchasedChallenge: state.activeChallenges.length > 0,
       currentChallenge: state.currentChallenge,
       activeChallenges: state.activeChallenges,
-      pastChallenges: state.pastChallenges,
     }),
   }),
 );
