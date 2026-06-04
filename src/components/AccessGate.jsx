@@ -29,7 +29,12 @@ function persistVerifiedSession({ accessToken, refreshToken, user }) {
 }
 
 async function syncAndPersistSession(session) {
-  await syncCurrentUserProfile();
+  try {
+    await syncCurrentUserProfile();
+  } catch (error) {
+    console.error("Could not sync authenticated profile.", error);
+  }
+
   persistVerifiedSession({
     accessToken: session.access_token,
     refreshToken: session.refresh_token,
@@ -99,20 +104,8 @@ export default function AccessGate({
       if (!mounted) return;
 
       if (session?.user) {
-        try {
-          await syncAndPersistSession(session);
-          if (mounted) setStatus("accepted");
-        } catch (error) {
-          console.error("Could not sync authenticated profile.", error);
-          if (mounted) {
-            setErrorMessage(
-              error instanceof Error
-                ? error.message
-                : "Could not sync your user profile.",
-            );
-            setStatus("ready");
-          }
-        }
+        await syncAndPersistSession(session);
+        if (mounted) setStatus("accepted");
         return;
       }
 

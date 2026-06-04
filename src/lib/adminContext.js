@@ -3,12 +3,13 @@ export function isAdminConsoleContext() {
     return true;
   }
 
+  if (import.meta.env.VITE_RABBITSHARK_APP_CONTEXT === "admin") {
+    return true;
+  }
+
   if (typeof window === "undefined") return false;
 
-  const { hostname, pathname } = window.location;
+  const { pathname } = window.location;
 
-  return (
-    /(^|\/)admin(?:-|\.|\/|$)/i.test(pathname) ||
-    /(^|[.-])(admin|developer|console)([.-]|$)/i.test(hostname)
-  );
+  return /(^|\/)admin(?:-|\.|\/|$)/i.test(pathname);
 }
