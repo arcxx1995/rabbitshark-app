@@ -1,19 +1,8 @@
 import { createClient } from "@supabase/supabase-js";
+import { isAdminConsoleContext } from "./adminContext";
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-
-function isAdminConsoleContext() {
-  if (typeof document !== "undefined" && document.getElementById("admin-root")) {
-    return true;
-  }
-
-  if (typeof window !== "undefined") {
-    return /(^|\/)admin(?:-|\.|\/|$)/i.test(window.location.pathname);
-  }
-
-  return false;
-}
 
 export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey);
 export const supabaseAuthContext = isAdminConsoleContext() ? "admin" : "player";
