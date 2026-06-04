@@ -113,6 +113,12 @@ async function getCurrentUser(client) {
   return userData.user ?? null;
 }
 
+function isMissingRpcError(error) {
+  const message = `${error?.code ?? ""} ${error?.message ?? ""}`;
+
+  return message.includes("PGRST202") || message.includes("Could not find the function");
+}
+
 async function addAssignedByProfiles(client, assignments) {
   const assignedByIds = [
     ...new Set(
@@ -341,6 +347,42 @@ export async function searchAssignmentByCode(query) {
   return addAssignedByProfiles(client, assignments);
 }
 
+export async function listAssignmentsForUser({ userId, challengeId = null }) {
+  const client = requireSupabase();
+
+  if (!userId) return [];
+
+  let query = client
+    .from("user_challenges")
+    .select(ASSIGNMENT_LOOKUP_SELECT)
+    .eq("user_id", userId)
+    .order("assigned_at", { ascending: false });
+
+  if (challengeId) {
+    query = query.eq("challenge_id", challengeId);
+  }
+
+  const { data, error } = await query;
+
+  if (error) throw error;
+  if (!data?.length) return [];
+
+  const { data: profileRows, error: profileError } = await client
+    .from("profiles")
+    .select("id,email,display_name")
+    .eq("id", userId);
+
+  if (profileError) throw profileError;
+
+  const [profile] = profileRows ?? [];
+  const assignments = data.map((assignment) => ({
+    ...assignment,
+    profile: profile ?? null,
+  }));
+
+  return addAssignedByProfiles(client, assignments);
+}
+
 export async function revokeAssignedChallenge(assignmentId) {
   const client = requireSupabase();
   const { data, error } = await client.rpc("revoke_user_challenge", {
@@ -372,12 +414,7 @@ export async function checkChallengeSystemHealth() {
   return data ?? [];
 }
 
-export async function getAssignedChallengesForCurrentUser() {
-  const client = requireSupabase();
-  const user = await getCurrentUser(client);
-
-  if (!user?.id) return [];
-
+async function getAssignedChallengeRowsDirect(client, userId) {
   const { data, error } = await client
     .from("user_challenges")
     .select(
@@ -389,13 +426,100 @@ export async function getAssignedChallengesForCurrentUser() {
         )
       `,
     )
-    .eq("user_id", user.id)
+    .eq("user_id", userId)
     .in("status", ["assigned", "active"])
     .order("assigned_at", { ascending: false });
 
   if (error) throw error;
 
-  return (data ?? []).map(mapAssignedChallenge);
+  return data ?? [];
+}
+
+async function getPastChallengeRowsDirect(client, userId) {
+  const { data, error } = await client
+    .from("user_challenges")
+    .select(
+      `
+        *,
+        challenges (
+          *,
+          evaluation_files (*)
+        )
+      `,
+    )
+    .eq("user_id", userId)
+    .in("status", ["completed", "failed"])
+    .order("completed_at", { ascending: false, nullsFirst: false });
+
+  if (error) throw error;
+
+  return data ?? [];
+}
+
+export async function getCurrentUserChallengeDashboard() {
+  const client = requireSupabase();
+  const user = await getCurrentUser(client);
+
+  if (!user?.id) {
+    return {
+      user: null,
+      assignedChallenges: [],
+      pastChallenges: [],
+      source: "none",
+    };
+  }
+
+  const { data, error } = await client.rpc("get_current_user_challenge_dashboard");
+
+  if (!error) {
+    const dashboard = data ?? {};
+
+    return {
+      user: {
+        id: user.id,
+        email: user.email ?? "",
+      },
+      assignedChallenges: (dashboard.active_assignments ?? []).map(mapAssignedChallenge),
+      pastChallenges: (dashboard.past_assignments ?? []).map(mapAssignedChallenge),
+      loadedAt: dashboard.loaded_at,
+      source: "rpc",
+    };
+  }
+
+  if (!isMissingRpcError(error)) {
+    throw error;
+  }
+
+  console.warn(
+    "Dashboard RPC is not installed yet; falling back to direct assignment queries.",
+    error,
+  );
+
+  const [assignedRows, pastRows] = await Promise.all([
+    getAssignedChallengeRowsDirect(client, user.id),
+    getPastChallengeRowsDirect(client, user.id),
+  ]);
+
+  return {
+    user: {
+      id: user.id,
+      email: user.email ?? "",
+    },
+    assignedChallenges: assignedRows.map(mapAssignedChallenge),
+    pastChallenges: pastRows.map(mapAssignedChallenge),
+    source: "fallback",
+  };
+}
+
+export async function getAssignedChallengesForCurrentUser() {
+  const client = requireSupabase();
+  const user = await getCurrentUser(client);
+
+  if (!user?.id) return [];
+
+  return (await getAssignedChallengeRowsDirect(client, user.id)).map(
+    mapAssignedChallenge,
+  );
 }
 
 export async function getPastChallengesForCurrentUser() {
@@ -404,24 +528,7 @@ export async function getPastChallengesForCurrentUser() {
 
   if (!user?.id) return [];
 
-  const { data, error } = await client
-    .from("user_challenges")
-    .select(
-      `
-        *,
-        challenges (
-          *,
-          evaluation_files (*)
-        )
-      `,
-    )
-    .eq("user_id", user.id)
-    .in("status", ["completed", "failed"])
-    .order("completed_at", { ascending: false, nullsFirst: false });
-
-  if (error) throw error;
-
-  return (data ?? []).map(mapAssignedChallenge);
+  return (await getPastChallengeRowsDirect(client, user.id)).map(mapAssignedChallenge);
 }
 
 export async function markAssignedChallengeStarted(assignmentId) {

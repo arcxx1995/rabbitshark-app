@@ -19,6 +19,7 @@ import {
   assignChallengeToUser,
   checkChallengeSystemHealth,
   createChallengeForEvaluation,
+  listAssignmentsForUser,
   listDatabaseChallenges,
   listDatabaseEvaluationFiles,
   revokeAssignedChallenge,
@@ -116,6 +117,9 @@ export default function AdminConsole() {
   const [selectedUser, setSelectedUser] = useState(null);
   const [assignmentPending, setAssignmentPending] = useState(false);
   const [assignmentReceipt, setAssignmentReceipt] = useState(null);
+  const [assignmentHistory, setAssignmentHistory] = useState([]);
+  const [assignmentHistoryLoading, setAssignmentHistoryLoading] = useState(false);
+  const [assignmentHistoryLoaded, setAssignmentHistoryLoaded] = useState(false);
   const [activeSection, setActiveSection] = useState("challenges");
   const [assignmentLookupMode, setAssignmentLookupMode] = useState("email");
   const [assignmentLookupEmail, setAssignmentLookupEmail] = useState("");
@@ -134,9 +138,51 @@ export default function AdminConsole() {
     return challenges.find((challenge) => challenge.id === selectedChallengeId);
   }, [challenges, selectedChallengeId]);
 
+  const activeAssignmentHistory = useMemo(() => {
+    return assignmentHistory.filter((assignment) =>
+      ["assigned", "active"].includes(assignment.status),
+    );
+  }, [assignmentHistory]);
+
   useEffect(() => {
     setAssignmentReceipt(null);
   }, [selectedChallengeId, selectedUser?.id]);
+
+  const loadSelectedAssignmentHistory = useCallback(async () => {
+    if (!selectedUser?.id || !selectedChallengeId) {
+      setAssignmentHistory([]);
+      setAssignmentHistoryLoaded(false);
+      setAssignmentHistoryLoading(false);
+      return;
+    }
+
+    setAssignmentHistoryLoading(true);
+    setAssignmentHistoryLoaded(true);
+
+    try {
+      const history = await listAssignmentsForUser({
+        userId: selectedUser.id,
+        challengeId: selectedChallengeId,
+      });
+
+      setAssignmentHistory(history);
+      setAssignmentHistoryLoading(false);
+    } catch (error) {
+      setAssignmentHistory([]);
+      setAssignmentHistoryLoading(false);
+      setMessage({
+        type: "error",
+        text:
+          error instanceof Error
+            ? error.message
+            : "Could not load assignment history.",
+      });
+    }
+  }, [selectedChallengeId, selectedUser?.id]);
+
+  useEffect(() => {
+    loadSelectedAssignmentHistory();
+  }, [loadSelectedAssignmentHistory]);
 
   async function loadAdminData() {
     setLoading(true);
@@ -373,6 +419,7 @@ export default function AdminConsole() {
         type: "success",
         text: `Assigned ${selectedChallenge.name} to ${selectedUser.email}. Code: ${assignment.assignment_code}.`,
       });
+      await loadSelectedAssignmentHistory();
     } catch (error) {
       setMessage({
         type: "error",
@@ -706,6 +753,81 @@ export default function AdminConsole() {
                       {selectedUser ? (
                         <div className="mt-4 rounded-xl border border-green/25 bg-green/10 p-3 text-sm text-green">
                           Selected {selectedUser.email}
+                        </div>
+                      ) : null}
+
+                      {selectedUser && selectedChallenge ? (
+                        <div className="mt-4 rounded-xl border border-white/10 bg-black/35 p-3">
+                          <div className="flex items-center justify-between gap-3">
+                            <div>
+                              <div className="text-xs font-bold uppercase tracking-[0.14em] text-white/45">
+                                Existing Assignments
+                              </div>
+                              <div className="mt-1 text-sm text-white/65">
+                                {assignmentHistoryLoading
+                                  ? "Checking history..."
+                                  : `${assignmentHistory.length} assignment${
+                                      assignmentHistory.length === 1 ? "" : "s"
+                                    } for this user and challenge`}
+                              </div>
+                            </div>
+                            <Badge
+                              className={
+                                activeAssignmentHistory.length > 0
+                                  ? "border-yellow-200/45 text-yellow-100"
+                                  : "border-green/45 text-green"
+                              }
+                            >
+                              {activeAssignmentHistory.length} active
+                            </Badge>
+                          </div>
+
+                          {assignmentHistoryLoaded &&
+                          !assignmentHistoryLoading &&
+                          assignmentHistory.length === 0 ? (
+                            <div className="mt-3 rounded-lg border border-dashed border-white/12 bg-white/5 p-3 text-xs leading-5 text-white/45">
+                              No previous assignment exists for this user and
+                              challenge.
+                            </div>
+                          ) : null}
+
+                          {activeAssignmentHistory.length > 0 ? (
+                            <div className="mt-3 rounded-lg border border-yellow-200/25 bg-yellow-300/10 p-3 text-xs leading-5 text-yellow-100">
+                              This user already has an active instance. Assigning
+                              again creates a separate challenge code.
+                            </div>
+                          ) : null}
+
+                          {assignmentHistory.length > 0 ? (
+                            <div className="mt-3 grid max-h-56 gap-2 overflow-auto pr-1">
+                              {assignmentHistory.map((assignment) => (
+                                <div
+                                  key={assignment.id}
+                                  className="rounded-lg border border-white/10 bg-black/45 p-3"
+                                >
+                                  <div className="flex items-start justify-between gap-3">
+                                    <div className="min-w-0">
+                                      <div className="font-display text-lg font-black tracking-[0.12em] text-green">
+                                        #{assignment.assignment_code}
+                                      </div>
+                                      <div className="mt-1 text-xs text-white/45">
+                                        Assigned {formatDateTime(assignment.assigned_at)}
+                                      </div>
+                                      <div className="mt-1 truncate text-xs text-white/45">
+                                        By{" "}
+                                        {assignment.assignedByProfile?.email ??
+                                          assignment.assigned_by ??
+                                          "not recorded"}
+                                      </div>
+                                    </div>
+                                    <Badge className={getStatusBadgeClass(assignment.status)}>
+                                      {assignment.status}
+                                    </Badge>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          ) : null}
                         </div>
                       ) : null}
 

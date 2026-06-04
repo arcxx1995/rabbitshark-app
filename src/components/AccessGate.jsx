@@ -1,11 +1,17 @@
 import { useEffect, useState } from "react";
 import { AlertCircle, Mail } from "lucide-react";
-import { isSupabaseConfigured, supabase } from "../lib/supabaseClient";
+import {
+  isSupabaseConfigured,
+  supabase,
+  supabaseAuthContext,
+} from "../lib/supabaseClient";
 import {
   clearStoredAuthSession,
   setStoredAuthSession,
 } from "../lib/authStorage";
+import { clearPersistedChallengeState } from "../lib/challengeStateStorage";
 import { syncCurrentUserProfile } from "../lib/userProfile";
+import { useEvaluationStore } from "../store/useEvaluationStore";
 import { Button } from "./ui/button";
 
 function getDisplayName(user) {
@@ -39,6 +45,10 @@ async function syncAndPersistSession(session) {
     await syncCurrentUserProfile();
   } catch (error) {
     console.error("Could not sync authenticated profile.", error);
+  }
+
+  if (supabaseAuthContext === "player") {
+    useEvaluationStore.getState().prepareChallengeStateForUser(session.user.id);
   }
 
   persistVerifiedSession({
@@ -93,6 +103,10 @@ export default function AccessGate({
       } catch (error) {
         console.error("Could not verify browser session.", error);
         clearStoredAuthSession();
+        if (supabaseAuthContext === "player") {
+          clearPersistedChallengeState();
+          useEvaluationStore.getState().resetChallengeStateForUser(null);
+        }
         if (mounted) {
           setErrorMessage(
             "Your saved browser session was rejected. Sign in again to continue.",
@@ -117,6 +131,10 @@ export default function AccessGate({
 
       if (event === "SIGNED_OUT") {
         clearStoredAuthSession();
+        if (supabaseAuthContext === "player") {
+          clearPersistedChallengeState();
+          useEvaluationStore.getState().resetChallengeStateForUser(null);
+        }
         setStatus("ready");
       }
     });

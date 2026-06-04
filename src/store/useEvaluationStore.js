@@ -8,12 +8,12 @@ import {
 } from "../engine/evaluationEngine";
 import {
   completeAssignedChallenge,
-  getCurrentChallengeUser,
-  getAssignedChallengesForCurrentUser,
+  getCurrentUserChallengeDashboard,
   getPastChallengesForCurrentUser,
   markAssignedChallengeStarted,
   recordAssignedChallengeProgress,
 } from "../lib/challengeDatabase";
+import { PLAYER_CHALLENGE_STATE_STORAGE_KEY } from "../lib/challengeStateStorage";
 import { getBestOption, getGrade } from "../lib/utils";
 
 const DEFAULT_DECISION_TIME_LIMIT_SECONDS = 25;
@@ -24,8 +24,6 @@ const initialStats = {
 };
 
 const roundScore = (value) => Math.round(value * 10) / 10;
-
-const initialEvaluation = getActiveEvaluation();
 
 const createChallenge = (evaluation) => ({
   id:
@@ -92,33 +90,74 @@ const getCompletedEntry = (scenario, option, timedOut = false) => {
   };
 };
 
-export const useEvaluationStore = create(
-  persist((set, get) => ({
-  evaluations: getEvaluationFiles(),
-  activeEvaluation: initialEvaluation,
-  scenarios: initialEvaluation.questions,
-  scenarioCategories: getScenarioCategories(initialEvaluation.questions),
-  selectedCategory: "All",
-  mode: "dashboard",
-  currentScenarioIndex: 0,
-  currentScenario: initialEvaluation.questions[0],
-  currentStreet: initialEvaluation.questions[0].street,
-  animationStep: 0,
-  selectedAction: null,
-  decisionResult: null,
-  decisionSecondsRemaining: DEFAULT_DECISION_TIME_LIMIT_SECONDS,
-  decisionTimerRunning: false,
-  feedbackVisible: false,
-  hasPurchasedChallenge: false,
-  currentChallenge: null,
-  activeChallenges: [],
-  pastChallenges: [],
-  stats: initialStats,
-  isLoadingData: false,
-  challengeDataError: null,
+const createDefaultChallengeState = (challengeStateUserId = null) => {
+  const activeEvaluation = getActiveEvaluation();
+  const scenarios = activeEvaluation.questions;
+
+  return {
+    evaluations: getEvaluationFiles(),
+    activeEvaluation,
+    scenarios,
+    scenarioCategories: getScenarioCategories(scenarios),
+    selectedCategory: "All",
+    mode: "dashboard",
+    currentScenarioIndex: 0,
+    currentScenario: scenarios[0],
+    currentStreet: scenarios[0]?.street ?? "",
+    animationStep: 0,
+    selectedAction: null,
+    decisionResult: null,
+    decisionSecondsRemaining: DEFAULT_DECISION_TIME_LIMIT_SECONDS,
+    decisionTimerRunning: false,
+    feedbackVisible: false,
+    hasPurchasedChallenge: false,
+    currentChallenge: null,
+    activeChallenges: [],
+    pastChallenges: [],
+    stats: initialStats,
+    isLoadingData: false,
+    challengeDataError: null,
   challengeDataUser: null,
+  challengeStateUserId,
+  assignmentRealtimeStatus: "idle",
+  assignmentRealtimeMessage: "Realtime sync has not started.",
   lastChallengeSyncAt: null,
   lastActiveChallengeCount: 0,
+  };
+};
+
+export const useEvaluationStore = create(
+  persist((set, get) => ({
+  ...createDefaultChallengeState(),
+
+  resetChallengeStateForUser: (userId = null) => {
+    set(createDefaultChallengeState(userId));
+  },
+
+  prepareChallengeStateForUser: (userId) => {
+    const currentUserId = get().challengeStateUserId;
+
+    if (!userId) {
+      get().resetChallengeStateForUser(null);
+      return;
+    }
+
+    if (currentUserId && currentUserId !== userId) {
+      get().resetChallengeStateForUser(userId);
+      return;
+    }
+
+    if (!currentUserId) {
+      set({ challengeStateUserId: userId });
+    }
+  },
+
+  setAssignmentRealtimeStatus: (status, message = "") => {
+    set({
+      assignmentRealtimeStatus: status,
+      assignmentRealtimeMessage: message,
+    });
+  },
 
   initializeData: async () => {
     set({ isLoadingData: true, challengeDataError: null });
@@ -126,11 +165,14 @@ export const useEvaluationStore = create(
     let challengeDataUser = null;
     let assignedChallenges = [];
     let pastDatabaseChallenges = [];
-    let pastChallengeError = null;
 
     try {
-      challengeDataUser = await getCurrentChallengeUser();
-      assignedChallenges = await getAssignedChallengesForCurrentUser();
+      const dashboard = await getCurrentUserChallengeDashboard();
+
+      challengeDataUser = dashboard.user;
+      get().prepareChallengeStateForUser(challengeDataUser?.id ?? null);
+      assignedChallenges = dashboard.assignedChallenges;
+      pastDatabaseChallenges = dashboard.pastChallenges;
     } catch (error) {
       console.error("Could not load assigned database challenges.", error);
 
@@ -145,16 +187,6 @@ export const useEvaluationStore = create(
         ),
       });
       return;
-    }
-
-    try {
-      pastDatabaseChallenges = await getPastChallengesForCurrentUser();
-    } catch (error) {
-      console.error("Could not load past database challenges.", error);
-      pastChallengeError = getErrorMessage(
-        error,
-        "Could not load past database challenges.",
-      );
     }
 
     try {
@@ -193,7 +225,7 @@ export const useEvaluationStore = create(
           decisionTimerRunning: false,
           feedbackVisible: false,
           isLoadingData: false,
-          challengeDataError: pastChallengeError,
+          challengeDataError: null,
           challengeDataUser,
           lastChallengeSyncAt: new Date().toISOString(),
           lastActiveChallengeCount: assignedChallenges.length,
@@ -221,7 +253,7 @@ export const useEvaluationStore = create(
         decisionTimerRunning: false,
         feedbackVisible: false,
         isLoadingData: false,
-        challengeDataError: pastChallengeError,
+        challengeDataError: null,
         challengeDataUser,
         lastChallengeSyncAt: new Date().toISOString(),
         lastActiveChallengeCount: assignedChallenges.length,
@@ -577,14 +609,21 @@ export const useEvaluationStore = create(
       );
     },
   }), {
-    name: "rabbitstake.challengeState",
-    version: 2,
-    migrate: (persistedState) => ({
-      ...persistedState,
-      pastChallenges: [],
-    }),
+    name: PLAYER_CHALLENGE_STATE_STORAGE_KEY,
+    version: 3,
+    migrate: (persistedState, version) => {
+      if (version < 3 || !persistedState?.challengeStateUserId) {
+        return createDefaultChallengeState(null);
+      }
+
+      return {
+        ...persistedState,
+        pastChallenges: [],
+      };
+    },
     partialize: (state) => ({
       hasPurchasedChallenge: state.activeChallenges.length > 0,
+      challengeStateUserId: state.challengeStateUserId,
       currentChallenge: state.currentChallenge,
       activeChallenges: state.activeChallenges,
     }),

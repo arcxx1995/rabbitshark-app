@@ -52,6 +52,12 @@ export default function ScenarioDashboard() {
   const isLoadingData = useEvaluationStore((state) => state.isLoadingData);
   const challengeDataError = useEvaluationStore((state) => state.challengeDataError);
   const challengeDataUser = useEvaluationStore((state) => state.challengeDataUser);
+  const assignmentRealtimeStatus = useEvaluationStore(
+    (state) => state.assignmentRealtimeStatus,
+  );
+  const assignmentRealtimeMessage = useEvaluationStore(
+    (state) => state.assignmentRealtimeMessage,
+  );
   const lastChallengeSyncAt = useEvaluationStore((state) => state.lastChallengeSyncAt);
   const lastActiveChallengeCount = useEvaluationStore(
     (state) => state.lastActiveChallengeCount,
@@ -228,6 +234,19 @@ export default function ScenarioDashboard() {
                 {lastChallengeSyncAt ? (
                   <Badge>{lastActiveChallengeCount} DB active</Badge>
                 ) : null}
+                <Badge
+                  className={
+                    assignmentRealtimeStatus === "connected"
+                      ? "border-green/45 text-green"
+                      : assignmentRealtimeStatus === "reconnecting"
+                        ? "border-yellow-200/45 text-yellow-100"
+                        : assignmentRealtimeStatus === "syncing"
+                          ? "border-green/45 text-green"
+                          : "border-white/20 text-white/55"
+                  }
+                >
+                  Sync {assignmentRealtimeStatus}
+                </Badge>
               </div>
               <h1 className="mt-3 font-display text-2xl font-black tracking-tight sm:text-3xl">
                 {screenTitle}
@@ -273,6 +292,7 @@ export default function ScenarioDashboard() {
                 : " with no signed-in Supabase user"}
               . Loaded {lastActiveChallengeCount} active database assignment
               {lastActiveChallengeCount === 1 ? "" : "s"}.
+              {assignmentRealtimeMessage ? ` ${assignmentRealtimeMessage}` : ""}
             </div>
           ) : null}
 

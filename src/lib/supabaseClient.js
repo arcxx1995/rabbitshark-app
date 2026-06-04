@@ -11,12 +11,13 @@ export const supabase = isSupabaseConfigured
   ? createClient(
       supabaseUrl,
       supabaseAnonKey,
-      supabaseAuthContext === "admin"
-        ? {
-            auth: {
-              storageKey: "rabbitstake.admin.supabase.auth",
-            },
-          }
-        : undefined,
+      {
+        auth: {
+          storageKey:
+            supabaseAuthContext === "admin"
+              ? "rabbitstake.admin.supabase.auth"
+              : "rabbitstake.player.supabase.auth",
+        },
+      },
     )
   : null;

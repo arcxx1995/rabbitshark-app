@@ -6,6 +6,12 @@ import reactRefresh from "eslint-plugin-react-refresh";
 export default [
   { ignores: ["dist", "dist-admin"] },
   {
+    files: ["playwright.config.js", "scripts/**/*.mjs", "tests/**/*.js"],
+    languageOptions: {
+      globals: globals.node,
+    },
+  },
+  {
     files: ["**/*.{js,jsx}"],
     languageOptions: {
       ecmaVersion: 2020,
