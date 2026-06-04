@@ -14,7 +14,7 @@ export const supabase = isSupabaseConfigured
       supabaseAuthContext === "admin"
         ? {
             auth: {
-              storageKey: "rabbitshark.admin.supabase.auth",
+              storageKey: "rabbitstake.admin.supabase.auth",
             },
           }
         : undefined,

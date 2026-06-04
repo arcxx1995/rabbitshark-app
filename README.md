@@ -1,5 +1,5 @@
-# rabbitshark-app
+# rabbitstake-app
 
-Rabbitshark player dashboard, poker challenge engine, and developer/admin console.
+Rabbitstake player dashboard, poker challenge engine, and developer/admin console.
 
 Client area auth: [docs/CLIENT_AREA_AUTH.md](docs/CLIENT_AREA_AUTH.md).

@@ -577,7 +577,7 @@ export const useEvaluationStore = create(
       );
     },
   }), {
-    name: "rabbitshark.challengeState",
+    name: "rabbitstake.challengeState",
     version: 2,
     migrate: (persistedState) => ({
       ...persistedState,

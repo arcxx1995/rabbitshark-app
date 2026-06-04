@@ -3,7 +3,7 @@ export function isAdminConsoleContext() {
     return true;
   }
 
-  if (import.meta.env.VITE_RABBITSHARK_APP_CONTEXT === "admin") {
+  if (import.meta.env.VITE_RABBITSTAKE_APP_CONTEXT === "admin") {
     return true;
   }
 

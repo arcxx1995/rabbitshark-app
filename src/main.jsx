@@ -31,7 +31,7 @@ async function renderApp() {
         <AccessGate
           contextLabel="Admin Console"
           eyebrow="Developer Console"
-          headline="Enter the Rabbitshark admin console."
+          headline="Enter the Rabbitstake admin console."
           description="Sign in with an authorized developer account to manage evaluation files and control the active challenge."
           stats={[
             { value: "JSON", label: "Evaluation Uploads" },

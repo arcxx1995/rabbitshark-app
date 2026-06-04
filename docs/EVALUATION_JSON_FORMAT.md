@@ -1,4 +1,4 @@
-# Rabbitshark Evaluation JSON Format
+# Rabbitstake Evaluation JSON Format
 
 An uploaded evaluation file must be valid JSON with exactly 25 questions.
 
@@ -126,7 +126,7 @@ The current table renderer is tuned for:
 
 ## Standard Player Names
 
-Use the same Rabbitshark player names in every scenario.
+Use the same Rabbitstake player names in every scenario.
 
 - Hero name must always be `Hero`.
 - 6-max villain names must come from: `Astra`, `Vector`, `Kaito`, `Nova`, `Mika`.
@@ -139,7 +139,7 @@ Use the same Rabbitshark player names in every scenario.
 Use this when generating files:
 
 ```text
-Generate a valid Rabbitshark poker evaluation JSON file.
+Generate a valid Rabbitstake poker evaluation JSON file.
 
 Requirements:
 - Return JSON only. No markdown.

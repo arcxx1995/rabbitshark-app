@@ -490,7 +490,7 @@ export default function AdminConsole() {
         <div className="mx-auto flex min-h-screen w-full max-w-7xl flex-col px-5 pb-12 pt-5 sm:px-8 sm:pb-14 sm:pt-7 lg:px-12">
           <header className="flex items-center justify-between gap-4">
             <a href="#" className="font-display text-2xl tracking-[0.18em]">
-              RABBITSHARK
+              RABBITSTAKE
             </a>
             <div className="hidden rounded-full border border-green/25 bg-green px-5 py-3 text-sm font-semibold text-black shadow-tide sm:block">
               Developer Console

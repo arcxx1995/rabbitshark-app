@@ -2,8 +2,8 @@ import { scenarios as scenarioTemplates } from "../data/scenarios";
 import { cashFoundationsEvaluation } from "../data/evaluations/cash-foundations-001";
 import { tournamentIcmEvaluation } from "../data/evaluations/tournament-icm-001";
 
-export const ACTIVE_EVALUATION_STORAGE_KEY = "rabbitshark.activeEvaluationId";
-export const UPLOADED_EVALUATIONS_STORAGE_KEY = "rabbitshark.uploadedEvaluations";
+export const ACTIVE_EVALUATION_STORAGE_KEY = "rabbitstake.activeEvaluationId";
+export const UPLOADED_EVALUATIONS_STORAGE_KEY = "rabbitstake.uploadedEvaluations";
 export const REQUIRED_QUESTION_COUNT = 25;
 export const DEFAULT_QUESTION_POINTS = 100;
 export const DEFAULT_FUNDED_THRESHOLD_PERCENT = 80;
@@ -133,7 +133,7 @@ function requirePlayer(value, path, options = {}) {
 
     if (standardNames.length > 0 && !standardNames.includes(value.name)) {
       throw new Error(
-        `${path}.name must use a standard Rabbitshark player name: ${standardNames.join(", ")}.`,
+        `${path}.name must use a standard Rabbitstake player name: ${standardNames.join(", ")}.`,
       );
     }
 

@@ -1,8 +1,8 @@
 import { isAdminConsoleContext } from "./adminContext";
 
-const PLAYER_SESSION_STORAGE_KEY = "rabbitshark.authSession";
-const ADMIN_SESSION_STORAGE_KEY = "rabbitshark.adminAuthSession";
-const LEGACY_SESSION_STORAGE_KEY = "rabbitshark.landingSession";
+const PLAYER_SESSION_STORAGE_KEY = "rabbitstake.authSession";
+const ADMIN_SESSION_STORAGE_KEY = "rabbitstake.adminAuthSession";
+const LEGACY_SESSION_STORAGE_KEY = "rabbitstake.landingSession";
 
 function getSessionStorageKey() {
   return isAdminConsoleContext() ? ADMIN_SESSION_STORAGE_KEY : PLAYER_SESSION_STORAGE_KEY;

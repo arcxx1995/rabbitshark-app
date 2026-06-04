@@ -155,7 +155,7 @@ export default function ScenarioDashboard() {
           <div>
             <div className="px-2 py-3">
               <div className="font-display text-lg font-black tracking-tight">
-                Rabbitshark
+                Rabbitstake
               </div>
               <div className="mt-1 text-xs font-bold uppercase tracking-[0.16em] text-white/40">
                 Player Console
