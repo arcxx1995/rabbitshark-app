@@ -1,9 +1,13 @@
-import { renameSync, rmSync } from "node:fs";
+import { copyFileSync, rmSync } from "node:fs";
 import { resolve } from "node:path";
 
 const outputDir = resolve("dist-admin");
 const source = resolve(outputDir, "admin-index.html");
-const target = resolve(outputDir, "index.html");
+const indexTarget = resolve(outputDir, "index.html");
+const adminTarget = resolve(outputDir, "admin.html");
 
-rmSync(target, { force: true });
-renameSync(source, target);
+rmSync(indexTarget, { force: true });
+rmSync(adminTarget, { force: true });
+copyFileSync(source, indexTarget);
+copyFileSync(source, adminTarget);
+rmSync(source, { force: true });
