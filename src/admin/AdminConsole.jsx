@@ -282,6 +282,71 @@ export default function AdminConsole() {
     }
   }, [activeSection, healthSearched, loadHealth]);
 
+  useEffect(() => {
+    if (activeSection !== "lookup") return undefined;
+
+    const lookupValue =
+      assignmentLookupMode === "code"
+        ? assignmentLookupCode.trim()
+        : assignmentLookupEmail.trim();
+    const normalizedCode = lookupValue.replace(/^#/, "").replace(/\D/g, "");
+    const canSearch =
+      assignmentLookupMode === "code"
+        ? normalizedCode.length === 9
+        : lookupValue.length >= 2;
+
+    if (!canSearch) {
+      setAssignmentResults([]);
+      setSelectedAssignmentDetails(null);
+      setAssignmentLookupSearched(false);
+      setAssignmentLookupLoading(false);
+      return undefined;
+    }
+
+    let cancelled = false;
+
+    async function runLiveLookup() {
+      setAssignmentLookupLoading(true);
+      setAssignmentLookupSearched(true);
+
+      try {
+        const results =
+          assignmentLookupMode === "code"
+            ? await searchAssignmentByCode(lookupValue)
+            : await searchAssignmentsByEmail(lookupValue);
+
+        if (!cancelled) {
+          setAssignmentResults(results);
+          setSelectedAssignmentDetails(null);
+          setAssignmentLookupLoading(false);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setAssignmentLookupLoading(false);
+          setMessage({
+            type: "error",
+            text:
+              error instanceof Error
+                ? error.message
+                : "Could not search assignment details.",
+          });
+        }
+      }
+    }
+
+    const timeoutId = window.setTimeout(runLiveLookup, 300);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeoutId);
+    };
+  }, [
+    activeSection,
+    assignmentLookupCode,
+    assignmentLookupEmail,
+    assignmentLookupMode,
+  ]);
+
   const logout = async () => {
     try {
       await signOutOfApp();
