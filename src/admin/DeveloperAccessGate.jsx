@@ -5,6 +5,23 @@ import { signOutOfApp } from "../lib/authSession";
 import { supabase } from "../lib/supabaseClient";
 
 const DEVELOPER_USERS_TABLE = "developer_users";
+const DEVELOPER_ACCESS_TIMEOUT_MS = 8000;
+
+async function withTimeout(promise, timeoutMs, label) {
+  let timeoutId;
+
+  const timeout = new Promise((_, reject) => {
+    timeoutId = window.setTimeout(() => {
+      reject(new Error(`${label} timed out.`));
+    }, timeoutMs);
+  });
+
+  try {
+    return await Promise.race([promise, timeout]);
+  } finally {
+    window.clearTimeout(timeoutId);
+  }
+}
 
 export default function DeveloperAccessGate({ children }) {
   const [status, setStatus] = useState("checking");
@@ -21,8 +38,11 @@ export default function DeveloperAccessGate({ children }) {
       }
 
       try {
-        const { data: sessionData, error: sessionError } =
-          await supabase.auth.getSession();
+        const { data: sessionData, error: sessionError } = await withTimeout(
+          supabase.auth.getSession(),
+          DEVELOPER_ACCESS_TIMEOUT_MS,
+          "Developer session check",
+        );
 
         if (sessionError) throw sessionError;
 
@@ -32,11 +52,15 @@ export default function DeveloperAccessGate({ children }) {
           throw new Error("Sign in with a developer account to continue.");
         }
 
-        const { data, error } = await supabase
-          .from(DEVELOPER_USERS_TABLE)
-          .select("user_id")
-          .eq("user_id", user.id)
-          .maybeSingle();
+        const { data, error } = await withTimeout(
+          supabase
+            .from(DEVELOPER_USERS_TABLE)
+            .select("user_id")
+            .eq("user_id", user.id)
+            .maybeSingle(),
+          DEVELOPER_ACCESS_TIMEOUT_MS,
+          "Developer allowlist check",
+        );
 
         if (error) throw error;
 

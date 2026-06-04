@@ -48,12 +48,28 @@ function getAllEvaluationFiles() {
   const filesById = new Map(evaluationFiles.map((file) => [file.id, file]));
 
   readUploadedEvaluations().forEach((file) => {
-    if (!evaluationFiles.some((builtInFile) => builtInFile.id === file.id)) {
+    if (
+      file?.id &&
+      Array.isArray(file.questions) &&
+      !evaluationFiles.some((builtInFile) => builtInFile.id === file.id)
+    ) {
       filesById.set(file.id, file);
     }
   });
 
   return [...filesById.values()];
+}
+
+function getValidEvaluationFiles() {
+  return getAllEvaluationFiles().filter((file) => {
+    try {
+      resolveEvaluationFile(file);
+      return true;
+    } catch (error) {
+      console.warn("Ignoring invalid stored evaluation file.", error);
+      return false;
+    }
+  });
 }
 
 function writeUploadedEvaluations(evaluations) {
@@ -264,26 +280,36 @@ export function resolveEvaluationFile(evaluationFile) {
 }
 
 export function getEvaluationFiles() {
-  return getAllEvaluationFiles().map((file) => ({
-    id: file.id,
-    title: file.title,
-    audience: file.audience ?? "Uploaded evaluation",
-    description: file.description ?? "",
-    version: file.version ?? "1.0.0",
-    questionCount: file.questions.length,
-    fundedThresholdPercent:
-      file.fundedThresholdPercent ?? DEFAULT_FUNDED_THRESHOLD_PERCENT,
-    isValid: file.questions.length === REQUIRED_QUESTION_COUNT,
-    source: evaluationFiles.some((builtInFile) => builtInFile.id === file.id)
-      ? "Built-in"
-      : "Uploaded JSON",
-  }));
+  return getValidEvaluationFiles().map((file) => {
+    const evaluation = resolveEvaluationFile(file);
+
+    return {
+      id: evaluation.id,
+      title: evaluation.title,
+      audience: evaluation.audience,
+      description: evaluation.description,
+      version: evaluation.version,
+      questionCount: evaluation.questionCount,
+      fundedThresholdPercent: evaluation.fundedThresholdPercent,
+      isValid: true,
+      source: evaluationFiles.some((builtInFile) => builtInFile.id === file.id)
+        ? "Built-in"
+        : "Uploaded JSON",
+    };
+  });
 }
 
 export function getEvaluationById(evaluationId) {
-  const allFiles = getAllEvaluationFiles();
+  const allFiles = getValidEvaluationFiles();
   const file = allFiles.find((item) => item.id === evaluationId) ?? evaluationFiles[0];
-  return resolveEvaluationFile(file);
+
+  try {
+    return resolveEvaluationFile(file);
+  } catch (error) {
+    console.error("Could not restore selected evaluation. Using default.", error);
+    writeStoredEvaluationId(evaluationFiles[0].id);
+    return resolveEvaluationFile(evaluationFiles[0]);
+  }
 }
 
 export function getActiveEvaluation() {

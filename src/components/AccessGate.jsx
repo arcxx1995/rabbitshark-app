@@ -11,8 +11,10 @@ import {
 } from "../lib/authStorage";
 import { clearPersistedChallengeState } from "../lib/challengeStateStorage";
 import { syncCurrentUserProfile } from "../lib/userProfile";
-import { useEvaluationStore } from "../store/useEvaluationStore";
 import { Button } from "./ui/button";
+
+const SESSION_RESTORE_TIMEOUT_MS = 8000;
+const PROFILE_SYNC_TIMEOUT_MS = 5000;
 
 function getDisplayName(user) {
   return (
@@ -40,22 +42,58 @@ function persistVerifiedSession({ accessToken, refreshToken, user }) {
   });
 }
 
-async function syncAndPersistSession(session) {
+async function withTimeout(promise, timeoutMs, label) {
+  let timeoutId;
+
+  const timeout = new Promise((_, reject) => {
+    timeoutId = window.setTimeout(() => {
+      reject(new Error(`${label} timed out.`));
+    }, timeoutMs);
+  });
+
   try {
-    await syncCurrentUserProfile();
-  } catch (error) {
+    return await Promise.race([promise, timeout]);
+  } finally {
+    window.clearTimeout(timeoutId);
+  }
+}
+
+async function preparePlayerChallengeState(userId) {
+  if (supabaseAuthContext !== "player") return;
+
+  const { useEvaluationStore } = await import("../store/useEvaluationStore");
+  useEvaluationStore.getState().prepareChallengeStateForUser(userId);
+}
+
+async function resetPlayerChallengeState() {
+  if (supabaseAuthContext !== "player") return;
+
+  clearPersistedChallengeState();
+  const { useEvaluationStore } = await import("../store/useEvaluationStore");
+  useEvaluationStore.getState().resetChallengeStateForUser(null);
+}
+
+function syncCurrentUserProfileInBackground() {
+  if (!supabase) return;
+
+  withTimeout(
+    syncCurrentUserProfile(),
+    PROFILE_SYNC_TIMEOUT_MS,
+    "Profile sync",
+  ).catch((error) => {
     console.error("Could not sync authenticated profile.", error);
-  }
+  });
+}
 
-  if (supabaseAuthContext === "player") {
-    useEvaluationStore.getState().prepareChallengeStateForUser(session.user.id);
-  }
-
+async function syncAndPersistSession(session) {
   persistVerifiedSession({
     accessToken: session.access_token,
     refreshToken: session.refresh_token,
     user: session.user,
   });
+
+  await preparePlayerChallengeState(session.user.id);
+  syncCurrentUserProfileInBackground();
 }
 
 export default function AccessGate({
@@ -89,7 +127,11 @@ export default function AccessGate({
 
     async function checkAccess() {
       try {
-        const { data, error } = await supabase.auth.getSession();
+        const { data, error } = await withTimeout(
+          supabase.auth.getSession(),
+          SESSION_RESTORE_TIMEOUT_MS,
+          "Session restore",
+        );
 
         if (error) throw error;
 
@@ -103,13 +145,10 @@ export default function AccessGate({
       } catch (error) {
         console.error("Could not verify browser session.", error);
         clearStoredAuthSession();
-        if (supabaseAuthContext === "player") {
-          clearPersistedChallengeState();
-          useEvaluationStore.getState().resetChallengeStateForUser(null);
-        }
+        await resetPlayerChallengeState();
         if (mounted) {
           setErrorMessage(
-            "Your saved browser session was rejected. Sign in again to continue.",
+            "Your saved browser session could not be restored. Sign in again to continue.",
           );
           setStatus("ready");
         }
@@ -124,17 +163,14 @@ export default function AccessGate({
       if (!mounted) return;
 
       if (session?.user) {
-        await syncAndPersistSession(session);
+        void syncAndPersistSession(session);
         if (mounted) setStatus("accepted");
         return;
       }
 
       if (event === "SIGNED_OUT") {
         clearStoredAuthSession();
-        if (supabaseAuthContext === "player") {
-          clearPersistedChallengeState();
-          useEvaluationStore.getState().resetChallengeStateForUser(null);
-        }
+        await resetPlayerChallengeState();
         setStatus("ready");
       }
     });
@@ -214,7 +250,18 @@ export default function AccessGate({
     }
   }
 
-  if (status === "checking") return null;
+  if (status === "checking") {
+    return (
+      <main className="grid min-h-dvh place-items-center bg-aurora px-5 text-green">
+        <section className="section-card flex items-center gap-3 rounded-[1.5rem] p-5">
+          <AlertCircle className="h-5 w-5" />
+          <span className="text-sm font-bold uppercase tracking-[0.14em]">
+            Restoring {contextLabel}
+          </span>
+        </section>
+      </main>
+    );
+  }
   if (status === "accepted") return children;
 
   return (
