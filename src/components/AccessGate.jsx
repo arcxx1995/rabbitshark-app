@@ -17,6 +17,12 @@ function getDisplayName(user) {
   );
 }
 
+function getEmailRedirectTo() {
+  if (typeof window === "undefined") return undefined;
+
+  return `${window.location.origin}/`;
+}
+
 function persistVerifiedSession({ accessToken, refreshToken, user }) {
   setStoredAuthSession({
     accessToken,
@@ -147,6 +153,9 @@ export default function AccessGate({
           ? await supabase.auth.signUp({
               email: trimmedEmail,
               password,
+              options: {
+                emailRedirectTo: getEmailRedirectTo(),
+              },
             })
           : await supabase.auth.signInWithPassword({
               email: trimmedEmail,
