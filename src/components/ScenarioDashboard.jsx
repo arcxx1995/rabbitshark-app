@@ -5,7 +5,6 @@ import {
   CheckCircle2,
   ClipboardList,
   Clock3,
-  Activity,
   LayoutDashboard,
   LogOut,
   Play,
@@ -51,18 +50,6 @@ export default function ScenarioDashboard() {
   const storedActiveChallenges = useEvaluationStore((state) => state.activeChallenges);
   const pastChallenges = useEvaluationStore((state) => state.pastChallenges);
   const isLoadingData = useEvaluationStore((state) => state.isLoadingData);
-  const challengeDataError = useEvaluationStore((state) => state.challengeDataError);
-  const challengeDataUser = useEvaluationStore((state) => state.challengeDataUser);
-  const assignmentRealtimeStatus = useEvaluationStore(
-    (state) => state.assignmentRealtimeStatus,
-  );
-  const assignmentRealtimeMessage = useEvaluationStore(
-    (state) => state.assignmentRealtimeMessage,
-  );
-  const lastChallengeSyncAt = useEvaluationStore((state) => state.lastChallengeSyncAt);
-  const lastActiveChallengeCount = useEvaluationStore(
-    (state) => state.lastActiveChallengeCount,
-  );
   const stats = useEvaluationStore((state) => state.stats);
   const totalPossible = useEvaluationStore((state) => state.getTotalPossibleScore());
   const fundedThresholdPoints = useEvaluationStore((state) =>
@@ -86,7 +73,7 @@ export default function ScenarioDashboard() {
   const failedChallenges = pastChallenges.filter(
     (challenge) => challenge.status === "Failed" || !challenge.funded,
   );
-  const fundedChallenges = pastChallenges.filter((challenge) => challenge.funded);
+  const totalChallengeCount = activeChallenges.length + pastChallenges.length;
   const status = !hasCurrentChallenge
     ? "No active challenge"
     : currentChallenge && completedCount === 0
@@ -101,19 +88,19 @@ export default function ScenarioDashboard() {
     {
       label: "Active Challenges",
       value: activeChallenges.length,
-      detail: hasCurrentChallenge ? status : "Awaiting assignment",
+      detail: hasCurrentChallenge ? "Assigned now" : "Awaiting assignment",
       icon: Trophy,
     },
     {
       label: "Failed Challenges",
       value: failedChallenges.length,
-      detail: `${fundedChallenges.length} funded`,
+      detail: "Did not pass",
       icon: XCircle,
     },
     {
-      label: "Past Challenges",
-      value: pastChallenges.length,
-      detail: `${fundedChallenges.length} funded`,
+      label: "Total Challenges",
+      value: totalChallengeCount,
+      detail: "All assigned attempts",
       icon: ClipboardList,
     },
   ];
@@ -123,14 +110,10 @@ export default function ScenarioDashboard() {
     { id: "results", label: "Results", icon: BarChart3 },
     { id: "funding", label: "Funding", icon: ShieldCheck },
   ];
-  const systemNavItems = [
-    { id: "status", label: "Status", icon: Activity },
-  ];
   const screenTitle =
     activeScreen === "payments"
       ? "Payments"
-      : [...navItems, ...systemNavItems].find((item) => item.id === activeScreen)
-          ?.label;
+      : navItems.find((item) => item.id === activeScreen)?.label;
   const logout = async () => {
     try {
       await signOutOfApp();
@@ -202,33 +185,6 @@ export default function ScenarioDashboard() {
                 );
               })}
             </nav>
-            <div className="mt-5 border-t border-white/10 pt-4">
-              <div className="px-3 text-[11px] font-bold uppercase tracking-[0.14em] text-white/35">
-                System
-              </div>
-              <nav className="mt-2 space-y-1">
-                {systemNavItems.map((item) => {
-                  const Icon = item.icon;
-
-                  return (
-                    <button
-                      key={item.label}
-                      type="button"
-                      onClick={() => setActiveScreen(item.id)}
-                      className={[
-                        "flex h-10 w-full items-center gap-3 rounded-lg px-3 text-left text-sm font-bold transition",
-                        activeScreen === item.id
-                          ? "bg-green text-black"
-                          : "text-white/58 hover:bg-white/8 hover:text-white",
-                      ].join(" ")}
-                    >
-                      <Icon className="h-4 w-4" />
-                      {item.label}
-                    </button>
-                  );
-                })}
-              </nav>
-            </div>
           </div>
         </aside>
 
@@ -291,7 +247,44 @@ export default function ScenarioDashboard() {
                       </div>
                     </div>
 
-                    <div className="mt-6">
+                    <div className="mt-6 rounded-lg border border-white/10 bg-black/20 p-4">
+                      <div className="mb-3 flex items-center justify-between gap-3">
+                        <h3 className="font-display text-lg font-bold">
+                          Dashboard Status
+                        </h3>
+                      </div>
+                      <div className="grid gap-3 md:grid-cols-3">
+                        {metrics.map((metric) => {
+                          const Icon = metric.icon;
+
+                          return (
+                            <div
+                              key={metric.label}
+                              className="rounded-lg border border-white/10 bg-black/45 p-4"
+                            >
+                              <div className="flex items-start justify-between gap-3">
+                                <div>
+                                  <p className="text-xs font-bold uppercase tracking-[0.16em] text-white/42">
+                                    {metric.label}
+                                  </p>
+                                  <div className="mt-2 font-display text-2xl font-black">
+                                    {metric.value}
+                                  </div>
+                                  <p className="mt-1 text-sm text-white/52">
+                                    {metric.detail}
+                                  </p>
+                                </div>
+                                <div className="grid h-10 w-10 shrink-0 place-items-center rounded-lg border border-green/20 bg-green/10 text-green">
+                                  <Icon size={20} />
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    <div className="mt-6 min-h-0">
                       <div className="mb-3 flex items-center justify-between gap-3">
                         <h3 className="font-display text-lg font-bold">
                           Active Challenges
@@ -311,7 +304,7 @@ export default function ScenarioDashboard() {
                           </p>
                         </div>
                       ) : (
-                        <div className="grid max-h-[48vh] gap-3 overflow-auto pr-1 md:grid-cols-2">
+                        <div className="grid max-h-[46vh] gap-3 overflow-y-auto pr-1 md:grid-cols-2">
                           {activeChallenges.map((challenge) => {
                             const isCurrentChallenge =
                               currentChallenge?.id === challenge.id;
@@ -428,7 +421,7 @@ export default function ScenarioDashboard() {
                           </p>
                         </div>
                       ) : (
-                        <div className="grid gap-3 md:grid-cols-2">
+                        <div className="grid max-h-[46vh] gap-3 overflow-y-auto pr-1 md:grid-cols-2">
                           {activeChallenges.map((challenge) => {
                             const isCurrentChallenge =
                               currentChallenge?.id === challenge.id;
@@ -579,95 +572,6 @@ export default function ScenarioDashboard() {
                       )}
                     </div>
                     </div>
-                  </div>
-                ) : activeScreen === "status" ? (
-                  <div className="min-h-[360px] overflow-auto pr-1">
-                    <div className="flex items-start justify-between gap-4">
-                      <div>
-                        <CardTitle className="text-2xl sm:text-3xl">
-                          Dashboard Status
-                        </CardTitle>
-                        <p className="mt-2 max-w-2xl text-sm leading-6 text-white/58">
-                          Account, sync, and assignment loading details.
-                        </p>
-                      </div>
-                      <div className="hidden h-12 w-12 shrink-0 place-items-center rounded-xl border border-green/20 bg-green/10 text-green sm:grid">
-                        <Activity size={24} />
-                      </div>
-                    </div>
-
-                    <div className="mt-6 grid gap-3 md:grid-cols-3">
-                      {metrics.map((metric) => {
-                        const Icon = metric.icon;
-
-                        return (
-                          <Card key={metric.label} className="rounded-xl p-4">
-                            <div className="flex items-start justify-between gap-3">
-                              <div>
-                                <p className="text-xs font-bold uppercase tracking-[0.16em] text-white/42">
-                                  {metric.label}
-                                </p>
-                                <div className="mt-2 font-display text-2xl font-black">
-                                  {metric.value}
-                                </div>
-                                <p className="mt-1 text-sm text-white/52">
-                                  {metric.detail}
-                                </p>
-                              </div>
-                              <div className="grid h-10 w-10 place-items-center rounded-lg border border-green/20 bg-green/10 text-green">
-                                <Icon size={20} />
-                              </div>
-                            </div>
-                          </Card>
-                        );
-                      })}
-                    </div>
-
-                    <div className="mt-6 grid gap-3 md:grid-cols-2">
-                      <div className="rounded-lg border border-white/10 bg-black/30 p-4">
-                        <div className="text-xs font-bold uppercase tracking-[0.14em] text-white/40">
-                          Account
-                        </div>
-                        <div className="mt-2 font-display text-lg font-bold text-white">
-                          {challengeDataUser?.email ?? "No signed-in Supabase user"}
-                        </div>
-                      </div>
-                      <div className="rounded-lg border border-white/10 bg-black/30 p-4">
-                        <div className="text-xs font-bold uppercase tracking-[0.14em] text-white/40">
-                          Active Assignments
-                        </div>
-                        <div className="mt-2 font-display text-lg font-bold text-white">
-                          {lastActiveChallengeCount}
-                        </div>
-                      </div>
-                      <div className="rounded-lg border border-white/10 bg-black/30 p-4">
-                        <div className="text-xs font-bold uppercase tracking-[0.14em] text-white/40">
-                          Realtime Sync
-                        </div>
-                        <div className="mt-2 font-display text-lg font-bold text-white">
-                          {assignmentRealtimeStatus}
-                        </div>
-                        {assignmentRealtimeMessage ? (
-                          <div className="mt-2 text-sm leading-6 text-white/52">
-                            {assignmentRealtimeMessage}
-                          </div>
-                        ) : null}
-                      </div>
-                      <div className="rounded-lg border border-white/10 bg-black/30 p-4">
-                        <div className="text-xs font-bold uppercase tracking-[0.14em] text-white/40">
-                          Last Sync
-                        </div>
-                        <div className="mt-2 font-display text-lg font-bold text-white">
-                          {formatDateTime(lastChallengeSyncAt)}
-                        </div>
-                      </div>
-                    </div>
-
-                    {challengeDataError ? (
-                      <div className="mt-4 rounded-lg border border-red-300/25 bg-red-500/10 px-4 py-3 text-sm text-red-100">
-                        Could not sync challenge assignments: {challengeDataError}
-                      </div>
-                    ) : null}
                   </div>
                 ) : (
                   <div className="grid min-h-[360px] place-items-center rounded-lg border border-dashed border-white/12 bg-black/14 p-6 text-center">
