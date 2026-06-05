@@ -29,14 +29,14 @@ export default function PlayingCard({
         seat && hero
           ? "h-14 w-10 text-sm sm:h-16 sm:w-11 sm:text-base"
           : seat
-            ? "h-8 w-6 text-[10px] sm:h-9 sm:w-7 sm:text-[11px]"
+            ? "h-9 w-6 text-[10px] sm:h-10 sm:w-7 sm:text-[11px]"
             : small
               ? "h-8 w-6 text-[10px]"
               : boardSmall
                 ? "h-16 w-11 text-sm sm:h-20 sm:w-14 sm:text-lg"
                 : "h-14 w-10 text-base sm:h-24 sm:w-16 sm:text-xl",
         hidden
-          ? "border-white/10 bg-gradient-to-br from-emerald-950 via-emerald-800 to-black"
+          ? "border-green/35 bg-gradient-to-br from-black via-[#003a2a] to-green"
           : "border-black/15 bg-[#f8f2df]",
       )}
       initial={{ y: -18, rotate: -5, opacity: 0 }}
@@ -45,7 +45,7 @@ export default function PlayingCard({
       aria-label={hidden ? "Face down card" : `${rank} of ${suit?.label}`}
     >
       {hidden ? (
-        <div className="absolute inset-1 rounded-lg border border-gold-400/35 bg-[radial-gradient(circle_at_50%_35%,rgba(216,185,104,.28),transparent_35%),repeating-linear-gradient(45deg,rgba(255,255,255,.08)_0_1px,transparent_1px_6px)]" />
+        <div className="absolute inset-1 rounded-lg border border-green/45 bg-[radial-gradient(circle_at_50%_35%,rgba(0,255,171,.35),transparent_34%),repeating-linear-gradient(45deg,rgba(0,0,0,.42)_0_1px,transparent_1px_6px)]" />
       ) : (
         <>
           <div

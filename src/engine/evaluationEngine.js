@@ -10,6 +10,7 @@ export const DEFAULT_FUNDED_THRESHOLD_PERCENT = 80;
 
 export const STANDARD_PLAYER_NAMES_BY_TABLE_FORMAT = {
   "6-max": ["Astra", "Vector", "Kaito", "Nova", "Mika"],
+  "8-max": ["Astra", "Vector", "Kaito", "Nova", "Mika", "Orbit", "Rin"],
   "9-max": ["Astra", "Vector", "Kaito", "Nova", "Mika", "Orbit", "Rin", "Sol"],
 };
 

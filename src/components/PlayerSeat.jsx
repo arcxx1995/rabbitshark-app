@@ -14,7 +14,8 @@ export default function PlayerSeat({
 }) {
   const folded = player.status === "Folded" || player.folded;
   const foldedThisStep = Boolean(player.foldedThisStep);
-  const hasCards = (isHero && showCards) || (active && !folded);
+  const hasCards =
+    (isHero && showCards) || (active && !folded) || foldedThisStep;
   const cardDockClasses = {
     top: "bottom-[58%] left-1/2 h-16 -translate-x-1/2",
     bottom: "left-1/2 top-[58%] h-16 -translate-x-1/2",
@@ -52,7 +53,19 @@ export default function PlayerSeat({
             cardDockClasses[cardDock],
           )}
         >
-          <div className="flex gap-1">
+          <motion.div
+            className="flex gap-1"
+            animate={
+              foldedThisStep
+                ? {
+                    y: [0, 18, 30],
+                    opacity: [1, 1, 0],
+                    scale: [1, 0.96, 0.9],
+                  }
+                : { y: 0, opacity: 1, scale: 1 }
+            }
+            transition={{ duration: 0.54, ease: "easeInOut" }}
+          >
             {isHero && showCards
               ? player.cards.map((card, index) => (
                   <PlayingCard
@@ -66,7 +79,7 @@ export default function PlayerSeat({
               : [0, 1].map((card) => (
                   <PlayingCard key={card} hidden seat delay={card * 0.08} />
                 ))}
-          </div>
+          </motion.div>
         </div>
       ) : null}
 

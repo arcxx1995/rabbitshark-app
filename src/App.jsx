@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import AppErrorBoundary from "./components/AppErrorBoundary";
 import AccessGate from "./components/AccessGate";
+import ChipLayoutPreview from "./components/ChipLayoutPreview";
 import EvaluationSummary from "./components/EvaluationSummary";
 import PokerEnginePreview from "./components/PokerEnginePreview";
 import PokerTable from "./components/PokerTable";
@@ -14,9 +15,17 @@ export default function App() {
     import.meta.env.DEV &&
     typeof window !== "undefined" &&
     window.location.pathname === "/engine-preview";
+  const isChipLayoutPreview =
+    import.meta.env.DEV &&
+    typeof window !== "undefined" &&
+    window.location.pathname === "/chip-layout-preview";
 
   if (isEnginePreview) {
     return <PokerEnginePreview />;
+  }
+
+  if (isChipLayoutPreview) {
+    return <ChipLayoutPreview />;
   }
 
   return (

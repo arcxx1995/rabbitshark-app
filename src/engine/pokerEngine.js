@@ -5,6 +5,7 @@ import { getBestOption } from "../lib/utils";
 
 const positionOrders = {
   "6-max": ["BTN", "SB", "BB", "UTG", "HJ", "CO"],
+  "8-max": ["BTN", "SB", "BB", "UTG", "UTG+1", "LJ", "HJ", "CO"],
   "9-max": ["BTN", "SB", "BB", "UTG", "UTG+1", "MP", "LJ", "HJ", "CO"],
 };
 
@@ -114,13 +115,43 @@ function buildSeatList(scenario) {
     .filter(Boolean);
 }
 
-function parseActionAmount(action) {
-  if (!/\b(bets?|raises?|calls?|posts?|3-bets?)\b/i.test(action)) return null;
+function formatChipAmount(value) {
+  if (!Number.isFinite(value) || value <= 0) return null;
 
+  const rounded = Number.isInteger(value) ? value : value.toFixed(1);
+
+  return `${rounded} BB`;
+}
+
+function parseNumericActionAmount(action) {
   const numberMatches = action.match(/\d+(?:\.\d+)?/g);
   if (!numberMatches?.length) return null;
 
-  return `${numberMatches[numberMatches.length - 1]} BB`;
+  const amount = Number.parseFloat(numberMatches[numberMatches.length - 1]);
+
+  return Number.isFinite(amount) ? amount : null;
+}
+
+function getActionWagerAmount(action, currentStreetWager) {
+  const normalizedAction = action.toLowerCase();
+
+  if (isStreetRevealAction(action) || /\b(checks?|folds?)\b/.test(normalizedAction)) {
+    return null;
+  }
+
+  if (/\bcalls?\b/.test(normalizedAction)) {
+    return parseNumericActionAmount(action) ?? currentStreetWager;
+  }
+
+  if (
+    /\b(bets?|raises?|opens?|posts?|limps?|3-bets?|4-bets?|5-bets?|jams?|shoves?|all-in)\b/.test(
+      normalizedAction,
+    )
+  ) {
+    return parseNumericActionAmount(action);
+  }
+
+  return null;
 }
 
 function parsePotAmount(pot) {
@@ -197,8 +228,9 @@ function isStreetRevealAction(action) {
   return /\b(flop|turn|river)\b/i.test(action);
 }
 
-function getBetForAction(action, seats, positions, tableFormat) {
-  const amount = parseActionAmount(action);
+function getBetForAction(action, seats, positions, tableFormat, currentStreetWager) {
+  const wagerAmount = getActionWagerAmount(action, currentStreetWager);
+  const amount = formatChipAmount(wagerAmount);
   if (!amount) return null;
 
   const actor = getActionActor(action, seats) ?? seats.find((player) => player.isHero);
@@ -210,6 +242,7 @@ function getBetForAction(action, seats, positions, tableFormat) {
   return {
     id: actor?.position ?? actor?.name ?? `seat-${actorIndex}`,
     amount,
+    rawAmount: wagerAmount,
     from: origin,
     spot: getBetChipPosition(tableFormat, origin),
   };
@@ -217,16 +250,25 @@ function getBetForAction(action, seats, positions, tableFormat) {
 
 function buildVisibleBets(actions, seats, positions, tableFormat) {
   const bets = new Map();
+  let currentStreetWager = null;
 
   actions.forEach((action) => {
     if (isStreetRevealAction(action)) {
       bets.clear();
+      currentStreetWager = null;
       return;
     }
 
-    const bet = getBetForAction(action, seats, positions, tableFormat);
+    const bet = getBetForAction(
+      action,
+      seats,
+      positions,
+      tableFormat,
+      currentStreetWager,
+    );
     if (bet) {
       bets.set(bet.id, bet);
+      currentStreetWager = Math.max(currentStreetWager ?? 0, bet.rawAmount);
     }
   });
 
@@ -276,21 +318,6 @@ export function buildPokerTableViewModel(scenario, animationStep) {
     scenario.tableFormat,
   );
   const heroIndex = seats.findIndex((player) => player.isHero);
-  const foldAnimations = seats
-    .map((player, index) => {
-      if (!player.foldedThisStep || player.isHero) return null;
-
-      const from = positions[index];
-      if (!from) return null;
-
-      return {
-        id: `${player.position}-${player.foldActionIndex}`,
-        player,
-        from,
-        target: tableCenterLayout.pot,
-      };
-    })
-    .filter(Boolean);
 
   return {
     positions,
@@ -300,7 +327,6 @@ export function buildPokerTableViewModel(scenario, animationStep) {
     visibleBoard: getVisibleBoard(scenario, animationStep),
     decisionReady: animationStep >= scenario.previousActions.length,
     tableBets,
-    foldAnimations,
     chipAnimation:
       latestAction && isStreetRevealAction(latestAction) && previousTableBets.length > 0
         ? {

@@ -61,46 +61,6 @@ function TableBetChips({ bets }) {
   ));
 }
 
-function FoldCardMovement({ animations }) {
-  return animations.map((animation) => (
-    <motion.div
-      key={`fold-${animation.id}`}
-      className="pointer-events-none absolute z-50 flex -translate-x-1/2 -translate-y-1/2 gap-1"
-      initial={{
-        left: `${animation.from.x}%`,
-        top: `${animation.from.y}%`,
-        scale: 0.92,
-        rotate: -4,
-        opacity: 0,
-      }}
-      animate={{
-        left: `${animation.target.x}%`,
-        top: `${animation.target.y}%`,
-        scale: [0.92, 1, 0.72],
-        rotate: [-4, 8, 18],
-        opacity: [0, 1, 0],
-      }}
-      exit={{ opacity: 0, scale: 0.64 }}
-      transition={{ duration: 0.86, ease: "easeInOut" }}
-    >
-      {[0, 1].map((card) => (
-        <motion.div
-          key={card}
-          initial={{ x: card * -2, y: 0, rotate: card === 0 ? -8 : 8 }}
-          animate={{
-            x: card === 0 ? -7 : 7,
-            y: card === 0 ? 1 : -1,
-            rotate: card === 0 ? -18 : 14,
-          }}
-          transition={{ duration: 0.42, ease: "easeOut" }}
-        >
-          <PlayingCard hidden seat delay={0} />
-        </motion.div>
-      ))}
-    </motion.div>
-  ));
-}
-
 function AnimatedChipMovement({ animation }) {
   if (!animation) return null;
 
@@ -302,17 +262,6 @@ export default function PokerTable() {
                 transition={{ type: "spring", stiffness: 90, damping: 18 }}
               >
                 <div
-                  className="absolute -translate-x-1/2 -translate-y-1/2 text-center"
-                  style={coordinateStyle(tableCenterLayout.street)}
-                >
-                  <div className="flex flex-wrap items-center justify-center gap-2">
-                    <Badge className="border-green/45 text-green">
-                      {scenario.street}
-                    </Badge>
-                  </div>
-                </div>
-
-                <div
                   className="absolute min-w-24 -translate-x-1/2 -translate-y-1/2 rounded-lg bg-black/20 px-3 py-1.5 text-center"
                   style={coordinateStyle(tableCenterLayout.pot)}
                 >
@@ -349,10 +298,6 @@ export default function PokerTable() {
               </motion.div>
 
               <TableBetChips bets={tableView.tableBets} />
-
-              <AnimatePresence mode="popLayout">
-                <FoldCardMovement animations={tableView.foldAnimations} />
-              </AnimatePresence>
 
               <AnimatePresence mode="wait">
                 <AnimatedChipMovement
