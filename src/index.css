@@ -162,4 +162,13 @@
       repeating-linear-gradient(90deg, rgba(252,248,248,.035) 0 1px, transparent 1px 5px),
       radial-gradient(circle at 50% 50%, #003424, #020202 74%);
   }
+
+  .scrollbar-hide {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
 }

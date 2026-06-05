@@ -61,6 +61,28 @@ const createStatsFromResults = (results = []) => ({
   completedScenarios: results,
 });
 
+const getChallengeKey = (challenge) => {
+  return challenge?.assignmentId ?? challenge?.id ?? null;
+};
+
+const mergeChallengeLists = (...lists) => {
+  const seen = new Set();
+  const merged = [];
+
+  lists.flat().forEach((challenge) => {
+    if (!challenge) return;
+
+    const key = getChallengeKey(challenge);
+
+    if (key && seen.has(key)) return;
+    if (key) seen.add(key);
+
+    merged.push(challenge);
+  });
+
+  return merged;
+};
+
 const getErrorMessage = (error, fallback) => {
   if (error instanceof Error) return error.message;
   if (error && typeof error === "object" && "message" in error) {
@@ -190,6 +212,18 @@ export const useEvaluationStore = create(
     }
 
     try {
+      const mergedPastChallenges = mergeChallengeLists(
+        pastDatabaseChallenges,
+        get().pastChallenges,
+      );
+      const pastChallengeKeys = new Set(
+        mergedPastChallenges.map(getChallengeKey).filter(Boolean),
+      );
+
+      assignedChallenges = assignedChallenges.filter(
+        (challenge) => !pastChallengeKeys.has(getChallengeKey(challenge)),
+      );
+
       if (assignedChallenges.length > 0) {
         const currentChallenge = assignedChallenges[0];
         const activeEvaluation = currentChallenge.evaluation;
@@ -215,7 +249,7 @@ export const useEvaluationStore = create(
           hasPurchasedChallenge: true,
           currentChallenge,
           activeChallenges: assignedChallenges,
-          pastChallenges: pastDatabaseChallenges,
+          pastChallenges: mergedPastChallenges,
           stats: restoredStats,
           selectedAction: null,
           decisionResult: null,
@@ -246,7 +280,8 @@ export const useEvaluationStore = create(
         hasPurchasedChallenge: false,
         currentChallenge: null,
         activeChallenges: [],
-        pastChallenges: pastDatabaseChallenges,
+        pastChallenges: mergedPastChallenges,
+        stats: initialStats,
         selectedAction: null,
         decisionResult: null,
         decisionSecondsRemaining: DEFAULT_DECISION_TIME_LIMIT_SECONDS,
@@ -283,7 +318,7 @@ export const useEvaluationStore = create(
   startEvaluation: async (category, challengeId) => {
     const { activeChallenges } = get();
     const currentChallenge =
-      activeChallenges.find((challenge) => challenge.id === challengeId) ??
+      activeChallenges.find((challenge) => getChallengeKey(challenge) === challengeId) ??
       get().currentChallenge ??
       activeChallenges[0];
     if (!currentChallenge) return;
@@ -342,7 +377,9 @@ export const useEvaluationStore = create(
       stats: nextStats,
       currentChallenge: nextChallenge,
       activeChallenges: activeChallenges.map((challenge) =>
-        challenge.id === nextChallenge.id ? nextChallenge : challenge,
+        getChallengeKey(challenge) === getChallengeKey(nextChallenge)
+          ? nextChallenge
+          : challenge,
       ),
     });
   },
@@ -464,7 +501,9 @@ export const useEvaluationStore = create(
       currentChallenge: nextChallenge,
       activeChallenges: nextChallenge
         ? get().activeChallenges.map((challenge) =>
-            challenge.id === nextChallenge.id ? nextChallenge : challenge,
+            getChallengeKey(challenge) === getChallengeKey(nextChallenge)
+              ? nextChallenge
+              : challenge,
           )
         : get().activeChallenges,
     });
@@ -511,27 +550,34 @@ export const useEvaluationStore = create(
         : null;
 
       let syncedPastChallenges = completedChallenge
-        ? [completedChallenge, ...pastChallenges]
+        ? mergeChallengeLists([completedChallenge], pastChallenges)
         : pastChallenges;
 
       if (completedChallenge?.dbBacked && completedChallenge.assignmentId) {
         try {
           await completeAssignedChallenge(completedChallenge.assignmentId, completedChallenge);
-          syncedPastChallenges = await getPastChallengesForCurrentUser();
+          syncedPastChallenges = mergeChallengeLists(
+            [completedChallenge],
+            await getPastChallengesForCurrentUser(),
+            pastChallenges,
+          );
         } catch (error) {
           console.error("Could not save assigned challenge result.", error);
         }
       }
 
+      const currentChallengeKey = getChallengeKey(currentChallenge);
       const remainingActiveChallenges = currentChallenge
-        ? activeChallenges.filter((challenge) => challenge.id !== currentChallenge.id)
+        ? activeChallenges.filter(
+            (challenge) => getChallengeKey(challenge) !== currentChallengeKey,
+          )
         : activeChallenges;
 
       set({
         mode: "summary",
         feedbackVisible: false,
         hasPurchasedChallenge: remainingActiveChallenges.length > 0,
-        currentChallenge: remainingActiveChallenges[0] ?? null,
+        currentChallenge: null,
         activeChallenges: remainingActiveChallenges,
         pastChallenges: syncedPastChallenges,
       });
