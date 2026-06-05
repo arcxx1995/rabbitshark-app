@@ -56,6 +56,7 @@ function AppScreens() {
     let active = true;
     let assignmentChannel = null;
     let retryTimeoutId = null;
+    let refreshAttemptTimeoutIds = [];
     let retryAttempt = 0;
 
     const cleanupChannel = () => {
@@ -65,10 +66,57 @@ function AppScreens() {
       }
     };
 
+    const clearRefreshAttempts = () => {
+      refreshAttemptTimeoutIds.forEach((timeoutId) => {
+        window.clearTimeout(timeoutId);
+      });
+      refreshAttemptTimeoutIds = [];
+    };
+
+    const refreshDashboardAssignments = async ({
+      statusMessage,
+      restoreConnectedStatus = false,
+    } = {}) => {
+      if (!active) return;
+
+      if (statusMessage) {
+        setAssignmentRealtimeStatus("syncing", statusMessage);
+      }
+
+      try {
+        await initializeData();
+      } finally {
+        if (active && restoreConnectedStatus) {
+          setAssignmentRealtimeStatus(
+            "connected",
+            "Assignment sync is connected.",
+          );
+        }
+      }
+    };
+
+    const scheduleAssignmentRefresh = (statusMessage) => {
+      if (!active) return;
+
+      clearRefreshAttempts();
+
+      [0, 1200, 3500].forEach((delay, index, delays) => {
+        const timeoutId = window.setTimeout(() => {
+          refreshDashboardAssignments({
+            statusMessage,
+            restoreConnectedStatus: index === delays.length - 1,
+          });
+        }, delay);
+
+        refreshAttemptTimeoutIds.push(timeoutId);
+      });
+    };
+
     const scheduleReconnect = (message) => {
       if (!active) return;
 
       cleanupChannel();
+      clearRefreshAttempts();
       const retryDelay = Math.min(30000, 1000 * 2 ** retryAttempt);
       retryAttempt += 1;
 
@@ -106,13 +154,9 @@ function AppScreens() {
             filter: `user_id=eq.${userId}`,
           },
           () => {
-            setAssignmentRealtimeStatus(
-              "syncing",
+            scheduleAssignmentRefresh(
               "Assignment update received. Refreshing dashboard.",
             );
-            if (document.visibilityState === "visible") {
-              initializeData();
-            }
           },
         )
         .subscribe((status) => {
@@ -124,6 +168,7 @@ function AppScreens() {
               "connected",
               "Assignment sync is connected.",
             );
+            scheduleAssignmentRefresh("Assignment sync connected. Verifying latest assignments.");
             return;
           }
 
@@ -143,6 +188,7 @@ function AppScreens() {
     return () => {
       active = false;
       window.clearTimeout(retryTimeoutId);
+      clearRefreshAttempts();
       cleanupChannel();
       setAssignmentRealtimeStatus("idle", "Realtime sync stopped.");
     };

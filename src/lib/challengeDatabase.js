@@ -119,6 +119,18 @@ function isMissingRpcError(error) {
   return message.includes("PGRST202") || message.includes("Could not find the function");
 }
 
+function isMissingAssignmentTableError(error) {
+  const message = `${error?.code ?? ""} ${error?.message ?? ""} ${error?.details ?? ""}`;
+
+  return (
+    message.includes("42P01") ||
+    message.includes("user_challenges") &&
+      (message.includes("schema cache") ||
+        message.includes("does not exist") ||
+        message.includes("relation"))
+  );
+}
+
 async function addAssignedByProfiles(client, assignments) {
   const assignedByIds = [
     ...new Set(
@@ -486,6 +498,23 @@ export async function getCurrentUserChallengeDashboard() {
     };
   }
 
+  if (isMissingAssignmentTableError(error)) {
+    console.warn(
+      "Challenge assignment tables are not installed yet; returning an empty dashboard.",
+      error,
+    );
+
+    return {
+      user: {
+        id: user.id,
+        email: user.email ?? "",
+      },
+      assignedChallenges: [],
+      pastChallenges: [],
+      source: "unavailable",
+    };
+  }
+
   if (!isMissingRpcError(error)) {
     throw error;
   }
@@ -495,10 +524,24 @@ export async function getCurrentUserChallengeDashboard() {
     error,
   );
 
-  const [assignedRows, pastRows] = await Promise.all([
-    getAssignedChallengeRowsDirect(client, user.id),
-    getPastChallengeRowsDirect(client, user.id),
-  ]);
+  let assignedRows = [];
+  let pastRows = [];
+
+  try {
+    [assignedRows, pastRows] = await Promise.all([
+      getAssignedChallengeRowsDirect(client, user.id),
+      getPastChallengeRowsDirect(client, user.id),
+    ]);
+  } catch (fallbackError) {
+    if (!isMissingAssignmentTableError(fallbackError)) {
+      throw fallbackError;
+    }
+
+    console.warn(
+      "Challenge assignment tables are not installed yet; returning an empty dashboard.",
+      fallbackError,
+    );
+  }
 
   return {
     user: {
