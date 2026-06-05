@@ -485,14 +485,53 @@ export async function getCurrentUserChallengeDashboard() {
 
   if (!error) {
     const dashboard = data ?? {};
+    const assignedRows = dashboard.active_assignments ?? [];
+    const pastRows = dashboard.past_assignments ?? [];
+
+    if (assignedRows.length === 0) {
+      try {
+        const [directAssignedRows, directPastRows] = await Promise.all([
+          getAssignedChallengeRowsDirect(client, user.id),
+          pastRows.length > 0
+            ? Promise.resolve([])
+            : getPastChallengeRowsDirect(client, user.id),
+        ]);
+
+        if (directAssignedRows.length > 0) {
+          console.warn(
+            "Dashboard RPC returned no active assignments; using direct assignment query results.",
+          );
+
+          return {
+            user: {
+              id: user.id,
+              email: user.email ?? "",
+            },
+            assignedChallenges: directAssignedRows.map(mapAssignedChallenge),
+            pastChallenges: (pastRows.length > 0 ? pastRows : directPastRows).map(
+              mapAssignedChallenge,
+            ),
+            loadedAt: dashboard.loaded_at,
+            source: "rpc-direct-verified",
+          };
+        }
+      } catch (verificationError) {
+        if (!isMissingAssignmentTableError(verificationError)) {
+          console.warn(
+            "Could not verify empty dashboard RPC result with direct assignment query.",
+            verificationError,
+          );
+        }
+      }
+    }
 
     return {
       user: {
         id: user.id,
         email: user.email ?? "",
       },
-      assignedChallenges: (dashboard.active_assignments ?? []).map(mapAssignedChallenge),
-      pastChallenges: (dashboard.past_assignments ?? []).map(mapAssignedChallenge),
+      assignedChallenges: assignedRows.map(mapAssignedChallenge),
+      pastChallenges: pastRows.map(mapAssignedChallenge),
       loadedAt: dashboard.loaded_at,
       source: "rpc",
     };
