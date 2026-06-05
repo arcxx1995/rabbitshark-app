@@ -1,3 +1,4 @@
+import { ArrowLeft } from "lucide-react";
 import { motion } from "framer-motion";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
@@ -8,6 +9,7 @@ export default function ActionPanel({
   selectedAction,
   decisionResult,
   onSelectAction,
+  onClearAction,
   onContinue,
   advancing = false,
   compact = false,
@@ -47,6 +49,29 @@ export default function ActionPanel({
               {advancing ? "Advancing" : "Confirm"}
             </Button>
           </div>
+        ) : selectedAction ? (
+          <div className="grid gap-3 rounded-xl border border-green/25 bg-black/70 p-3 sm:grid-cols-[auto_1fr_auto] sm:items-center">
+            <Button
+              className="h-10 w-10 px-0"
+              variant="secondary"
+              disabled={advancing}
+              onClick={onClearAction}
+              aria-label="Change selected action"
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+            <div className="min-w-0">
+              <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-green">
+                Selected Action
+              </div>
+              <div className="mt-1 text-xs font-semibold leading-5 text-white/72">
+                {selectedAction.label}
+              </div>
+            </div>
+            <Button className="h-10 px-4 text-xs" disabled={advancing} onClick={onContinue}>
+              {advancing ? "Advancing" : "Continue"}
+            </Button>
+          </div>
         ) : (
           <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4 sm:gap-3">
             {scenario.options.map((option, index) => (
@@ -59,7 +84,7 @@ export default function ActionPanel({
                 <Button
                   className="h-11 w-full whitespace-normal rounded-xl border border-white/10 px-2 text-[9px] leading-tight shadow-lg sm:h-12 sm:px-3 sm:text-xs"
                   variant={selectedAction?.label === option.label ? "selected" : "secondary"}
-                  disabled={disabled || Boolean(selectedAction)}
+                  disabled={disabled}
                   onClick={() => onSelectAction(option)}
                 >
                   {option.label}
@@ -103,6 +128,29 @@ export default function ActionPanel({
               {advancing ? "Advancing" : "Confirm"}
             </Button>
           </div>
+        ) : selectedAction ? (
+          <div className="rounded-2xl border border-green/25 bg-black/24 p-4">
+            <div className="text-xs font-bold uppercase tracking-[0.18em] text-green">
+              Selected Action
+            </div>
+            <p className="mt-2 text-sm leading-6 text-white/72">
+              {selectedAction.label}
+            </p>
+            <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+              <Button
+                className="h-11 w-11 px-0"
+                variant="secondary"
+                disabled={advancing}
+                onClick={onClearAction}
+                aria-label="Change selected action"
+              >
+                <ArrowLeft className="h-4 w-4" />
+              </Button>
+              <Button disabled={advancing} onClick={onContinue}>
+                {advancing ? "Advancing" : "Continue"}
+              </Button>
+            </div>
+          </div>
         ) : (
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             {scenario.options.map((option, index) => (
@@ -115,7 +163,7 @@ export default function ActionPanel({
                 <Button
                   className="h-16 w-full whitespace-normal rounded-2xl px-3 text-center leading-tight"
                   variant={selectedAction?.label === option.label ? "selected" : "secondary"}
-                  disabled={disabled || Boolean(selectedAction)}
+                  disabled={disabled}
                   onClick={() => onSelectAction(option)}
                 >
                   {option.label}

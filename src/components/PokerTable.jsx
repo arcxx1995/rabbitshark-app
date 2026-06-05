@@ -61,6 +61,46 @@ function TableBetChips({ bets }) {
   ));
 }
 
+function FoldCardMovement({ animations }) {
+  return animations.map((animation) => (
+    <motion.div
+      key={`fold-${animation.id}`}
+      className="pointer-events-none absolute z-50 flex -translate-x-1/2 -translate-y-1/2 gap-1"
+      initial={{
+        left: `${animation.from.x}%`,
+        top: `${animation.from.y}%`,
+        scale: 0.92,
+        rotate: -4,
+        opacity: 0,
+      }}
+      animate={{
+        left: `${animation.target.x}%`,
+        top: `${animation.target.y}%`,
+        scale: [0.92, 1, 0.72],
+        rotate: [-4, 8, 18],
+        opacity: [0, 1, 0],
+      }}
+      exit={{ opacity: 0, scale: 0.64 }}
+      transition={{ duration: 0.86, ease: "easeInOut" }}
+    >
+      {[0, 1].map((card) => (
+        <motion.div
+          key={card}
+          initial={{ x: card * -2, y: 0, rotate: card === 0 ? -8 : 8 }}
+          animate={{
+            x: card === 0 ? -7 : 7,
+            y: card === 0 ? 1 : -1,
+            rotate: card === 0 ? -18 : 14,
+          }}
+          transition={{ duration: 0.42, ease: "easeOut" }}
+        >
+          <PlayingCard hidden seat delay={0} />
+        </motion.div>
+      ))}
+    </motion.div>
+  ));
+}
+
 function AnimatedChipMovement({ animation }) {
   if (!animation) return null;
 
@@ -145,6 +185,8 @@ export default function PokerTable() {
   const startDecisionTimer = useEvaluationStore((state) => state.startDecisionTimer);
   const tickDecisionTimer = useEvaluationStore((state) => state.tickDecisionTimer);
   const selectAction = useEvaluationStore((state) => state.selectAction);
+  const clearSelectedAction = useEvaluationStore((state) => state.clearSelectedAction);
+  const commitSelectedAction = useEvaluationStore((state) => state.commitSelectedAction);
   const nextScenario = useEvaluationStore((state) => state.nextScenario);
   const goDashboard = useEvaluationStore((state) => state.goDashboard);
   const [isAdvancingQuestion, setIsAdvancingQuestion] = useState(false);
@@ -161,6 +203,12 @@ export default function PokerTable() {
 
     setIsAdvancingQuestion(true);
     window.setTimeout(async () => {
+      const committed = await commitSelectedAction();
+      if (!committed) {
+        setIsAdvancingQuestion(false);
+        return;
+      }
+
       await nextScenario();
       setIsAdvancingQuestion(false);
     }, 980);
@@ -302,6 +350,10 @@ export default function PokerTable() {
 
               <TableBetChips bets={tableView.tableBets} />
 
+              <AnimatePresence mode="popLayout">
+                <FoldCardMovement animations={tableView.foldAnimations} />
+              </AnimatePresence>
+
               <AnimatePresence mode="wait">
                 <AnimatedChipMovement
                   key={`chips-${animationStep}`}
@@ -341,6 +393,7 @@ export default function PokerTable() {
                   selectedAction={selectedAction}
                   decisionResult={decisionResult}
                   onSelectAction={selectAction}
+                  onClearAction={clearSelectedAction}
                   onContinue={handleConfirmAdvance}
                   advancing={isAdvancingQuestion}
                   compact

@@ -163,6 +163,85 @@ export const useEvaluationStore = create(
     });
   },
 
+  loadPokerEnginePreview: ({ scenarios: previewScenarios, startIndex = 0 }) => {
+    const normalizedStartIndex = Math.min(
+      Math.max(startIndex, 0),
+      Math.max(previewScenarios.length - 1, 0),
+    );
+    const activeEvaluation = {
+      id: "poker-engine-preview",
+      title: "Poker Engine Preview",
+      audience: "Local engine development",
+      description: "Local preview challenge for poker engine development.",
+      version: "preview",
+      questions: previewScenarios,
+      questionCount: previewScenarios.length,
+      fundedThresholdPercent: DEFAULT_FUNDED_THRESHOLD_PERCENT,
+      totalPossiblePoints: previewScenarios.reduce(
+        (total, scenario) => total + (scenario.points ?? 100),
+        0,
+      ),
+    };
+    const currentScenario = previewScenarios[normalizedStartIndex] ?? previewScenarios[0];
+    const previewChallenge = {
+      id: "poker-engine-preview-assignment",
+      assignmentId: "poker-engine-preview-assignment",
+      assignmentCode: "PREVIEW001",
+      challengeId: "poker-engine-preview",
+      title: "Poker Engine Preview",
+      evaluationId: activeEvaluation.id,
+      status: "In progress",
+      purchasedAt: new Date().toISOString(),
+      startedAt: new Date().toISOString(),
+      completedAt: null,
+      score: 0,
+      earnedPoints: 0,
+      totalPossiblePoints: activeEvaluation.totalPossiblePoints,
+      funded: false,
+      scenarioResults: [],
+      progressResults: [],
+      currentQuestionIndex: normalizedStartIndex,
+      decisionTimeLimitSeconds: DEFAULT_DECISION_TIME_LIMIT_SECONDS,
+      dbBacked: false,
+      evaluation: activeEvaluation,
+    };
+
+    set({
+      evaluations: [activeEvaluation],
+      activeEvaluation,
+      scenarios: previewScenarios,
+      scenarioCategories: getScenarioCategories(previewScenarios),
+      selectedCategory: "All",
+      mode: "table",
+      currentScenarioIndex: normalizedStartIndex,
+      currentScenario,
+      currentStreet: currentScenario?.street ?? "",
+      animationStep: 0,
+      selectedAction: null,
+      decisionResult: null,
+      decisionSecondsRemaining: DEFAULT_DECISION_TIME_LIMIT_SECONDS,
+      decisionTimerRunning: false,
+      feedbackVisible: false,
+      hasPurchasedChallenge: true,
+      currentChallenge: previewChallenge,
+      activeChallenges: [previewChallenge],
+      pastChallenges: [],
+      completedChallengeSummary: null,
+      stats: initialStats,
+      isLoadingData: false,
+      challengeDataError: null,
+      challengeDataUser: {
+        id: "poker-engine-preview-user",
+        email: "preview@rabbitstake.local",
+      },
+      challengeStateUserId: "poker-engine-preview-user",
+      assignmentRealtimeStatus: "idle",
+      assignmentRealtimeMessage: "Local poker engine preview.",
+      lastChallengeSyncAt: new Date().toISOString(),
+      lastActiveChallengeCount: 1,
+    });
+  },
+
   initializeData: async () => {
     set({ isLoadingData: true, challengeDataError: null });
 
@@ -458,15 +537,48 @@ export const useEvaluationStore = create(
 
     if (decisionSecondsRemaining <= 1) {
       set({ decisionSecondsRemaining: 0, decisionTimerRunning: false });
-      await get().selectAction(null, { timedOut: true });
+      await get().commitSelectedAction({ timedOut: true });
       return;
     }
 
     set({ decisionSecondsRemaining: decisionSecondsRemaining - 1 });
   },
 
-  selectAction: async (option, config = {}) => {
+  selectAction: (option) => {
+    if (!option) return;
+
+    set({
+      selectedAction: option,
+      decisionResult: null,
+      decisionTimerRunning: false,
+    });
+  },
+
+  clearSelectedAction: () => {
+    const { currentScenario, animationStep, decisionSecondsRemaining, decisionResult } =
+      get();
+    const decisionReady = animationStep >= currentScenario.previousActions.length;
+
+    if (decisionResult) return;
+
+    set({
+      selectedAction: null,
+      decisionTimerRunning: decisionReady && decisionSecondsRemaining > 0,
+    });
+  },
+
+  commitSelectedAction: async (config = {}) => {
     const { currentScenario, stats } = get();
+    const option = config.timedOut ? null : get().selectedAction;
+
+    if (!config.timedOut && !option) {
+      return false;
+    }
+
+    if (get().decisionResult && !config.force) {
+      return true;
+    }
+
     const alreadyCompleted = stats.completedScenarios.some(
       (completed) => completed.id === currentScenario.id,
     );
@@ -516,6 +628,8 @@ export const useEvaluationStore = create(
         console.error("Could not save assigned challenge progress.", error);
       }
     }
+
+    return true;
   },
 
   hideFeedback: () => {

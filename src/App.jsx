@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import AppErrorBoundary from "./components/AppErrorBoundary";
 import AccessGate from "./components/AccessGate";
 import EvaluationSummary from "./components/EvaluationSummary";
+import PokerEnginePreview from "./components/PokerEnginePreview";
 import PokerTable from "./components/PokerTable";
 import ScenarioDashboard from "./components/ScenarioDashboard";
 import { supabase } from "./lib/supabaseClient";
@@ -9,6 +10,14 @@ import { useEvaluationStore } from "./store/useEvaluationStore";
 
 export default function App() {
   const initializeData = useEvaluationStore.getState().initializeData;
+  const isEnginePreview =
+    import.meta.env.DEV &&
+    typeof window !== "undefined" &&
+    window.location.pathname === "/engine-preview";
+
+  if (isEnginePreview) {
+    return <PokerEnginePreview />;
+  }
 
   return (
     <AccessGate contextLabel="Client Area">

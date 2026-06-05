@@ -163,6 +163,36 @@ function getActionActor(action, seats) {
   });
 }
 
+function getFoldedPositionsForAction(action, seats) {
+  const normalizedAction = action.toLowerCase();
+
+  if (!/\bfolds?\b/.test(normalizedAction)) return [];
+
+  if (/\bblinds?\s+folds?\b/.test(normalizedAction)) {
+    return ["SB", "BB"].filter((position) =>
+      seats.some((player) => player.position === position),
+    );
+  }
+
+  const actor = getActionActor(action, seats);
+
+  return actor ? [actor.position] : [];
+}
+
+function buildFoldEvents(actions, seats) {
+  const foldEventsByPosition = new Map();
+
+  actions.forEach((action, index) => {
+    getFoldedPositionsForAction(action, seats).forEach((position) => {
+      if (!foldEventsByPosition.has(position)) {
+        foldEventsByPosition.set(position, { action, actionIndex: index, position });
+      }
+    });
+  });
+
+  return foldEventsByPosition;
+}
+
 function isStreetRevealAction(action) {
   return /\b(flop|turn|river)\b/i.test(action);
 }
@@ -214,10 +244,25 @@ export function buildSelectedActionMovement(action, heroPosition, tableFormat, s
 
 export function buildPokerTableViewModel(scenario, animationStep) {
   const positions = seatLayouts[scenario.tableFormat] ?? seatLayouts["6-max"];
-  const seats = buildSeatList(scenario).slice(0, positions.length);
+  const baseSeats = buildSeatList(scenario).slice(0, positions.length);
   const visibleActions = scenario.previousActions.slice(0, animationStep);
   const latestAction =
     animationStep > 0 ? scenario.previousActions[animationStep - 1] : null;
+  const foldEvents = buildFoldEvents(visibleActions, baseSeats);
+  const seats = baseSeats.map((player) => {
+    const foldEvent = foldEvents.get(player.position);
+
+    if (!foldEvent) return player;
+
+    return {
+      ...player,
+      status: "Folded",
+      folded: true,
+      foldAction: foldEvent.action,
+      foldActionIndex: foldEvent.actionIndex,
+      foldedThisStep: foldEvent.actionIndex === animationStep - 1,
+    };
+  });
   const tableBets = buildVisibleBets(
     visibleActions,
     seats,
@@ -231,6 +276,21 @@ export function buildPokerTableViewModel(scenario, animationStep) {
     scenario.tableFormat,
   );
   const heroIndex = seats.findIndex((player) => player.isHero);
+  const foldAnimations = seats
+    .map((player, index) => {
+      if (!player.foldedThisStep || player.isHero) return null;
+
+      const from = positions[index];
+      if (!from) return null;
+
+      return {
+        id: `${player.position}-${player.foldActionIndex}`,
+        player,
+        from,
+        target: tableCenterLayout.pot,
+      };
+    })
+    .filter(Boolean);
 
   return {
     positions,
@@ -240,6 +300,7 @@ export function buildPokerTableViewModel(scenario, animationStep) {
     visibleBoard: getVisibleBoard(scenario, animationStep),
     decisionReady: animationStep >= scenario.previousActions.length,
     tableBets,
+    foldAnimations,
     chipAnimation:
       latestAction && isStreetRevealAction(latestAction) && previousTableBets.length > 0
         ? {

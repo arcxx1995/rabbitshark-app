@@ -12,7 +12,8 @@ export default function PlayerSeat({
   showCards = false,
   active = false,
 }) {
-  const folded = player.status === "Folded";
+  const folded = player.status === "Folded" || player.folded;
+  const foldedThisStep = Boolean(player.foldedThisStep);
   const hasCards = (isHero && showCards) || (active && !folded);
   const cardDockClasses = {
     top: "bottom-[58%] left-1/2 h-16 -translate-x-1/2",
@@ -33,8 +34,16 @@ export default function PlayerSeat({
       className={cn("absolute z-20 w-[11%]", anchorClasses[anchor])}
       style={{ left: `${position.x}%`, top: `${position.y}%` }}
       initial={{ scale: 0.86, opacity: 0 }}
-      animate={{ scale: 1, opacity: folded ? 0.42 : 1 }}
-      transition={{ type: "spring", stiffness: 180, damping: 18 }}
+      animate={{
+        scale: foldedThisStep ? [1, 0.94, 1] : 1,
+        opacity: folded ? 0.46 : 1,
+      }}
+      transition={{
+        duration: foldedThisStep ? 0.58 : undefined,
+        type: foldedThisStep ? "tween" : "spring",
+        stiffness: 180,
+        damping: 18,
+      }}
     >
       {hasCards ? (
         <div
@@ -68,7 +77,8 @@ export default function PlayerSeat({
             ? "border-cyan-300/30 bg-gradient-to-br from-[#243347] to-[#151722]"
             : "border-white/8 bg-[#191a24]",
           active && !folded && "border-cyan-300/60 shadow-[0_0_28px_rgba(34,211,238,.28)] ring-2 ring-cyan-300/35",
-          folded && "grayscale",
+          folded && "border-white/10 bg-[#12131a] grayscale",
+          foldedThisStep && "ring-2 ring-white/20",
         )}
       >
         {isDealer ? (
@@ -81,7 +91,7 @@ export default function PlayerSeat({
           {player.name} <span className="text-white/52">({player.position})</span>
         </div>
         <div className="relative z-30 mt-1 px-1 font-display text-[clamp(9px,0.82vw,12px)] font-black leading-none text-gold-400">
-          {player.stackBB}
+          {folded ? "FOLDED" : player.stackBB}
         </div>
       </div>
     </motion.div>
