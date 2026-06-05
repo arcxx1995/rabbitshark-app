@@ -1,4 +1,4 @@
-import { Award, Home } from "lucide-react";
+import { ArrowRight, Award } from "lucide-react";
 import ScorePanel from "./ScorePanel";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
@@ -76,8 +76,8 @@ export default function EvaluationSummary() {
 
           <div className="mt-6 flex flex-col gap-3 sm:mt-8 sm:flex-row">
             <Button onClick={goDashboard}>
-              <Home className="mr-2 h-4 w-4" />
-              Dashboard
+              Continue
+              <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
           </div>
         </section>
