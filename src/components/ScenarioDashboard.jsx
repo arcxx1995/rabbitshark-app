@@ -5,6 +5,7 @@ import {
   CheckCircle2,
   ClipboardList,
   Clock3,
+  Activity,
   LayoutDashboard,
   LogOut,
   Play,
@@ -122,10 +123,14 @@ export default function ScenarioDashboard() {
     { id: "results", label: "Results", icon: BarChart3 },
     { id: "funding", label: "Funding", icon: ShieldCheck },
   ];
+  const systemNavItems = [
+    { id: "status", label: "Status", icon: Activity },
+  ];
   const screenTitle =
     activeScreen === "payments"
       ? "Payments"
-      : navItems.find((item) => item.id === activeScreen)?.label;
+      : [...navItems, ...systemNavItems].find((item) => item.id === activeScreen)
+          ?.label;
   const logout = async () => {
     try {
       await signOutOfApp();
@@ -197,19 +202,32 @@ export default function ScenarioDashboard() {
                 );
               })}
             </nav>
-          </div>
-          <div className="mt-auto rounded-lg border border-white/10 bg-black/18 p-3">
-            <div className="text-xs font-bold uppercase tracking-[0.14em] text-white/40">
-              Active Status
-            </div>
-            <div className="mt-2 flex items-center gap-2">
-              <span
-                className={[
-                  "h-2 w-2 rounded-full",
-                  hasCurrentChallenge ? "bg-green" : "bg-white/42",
-                ].join(" ")}
-              />
-              <span className="text-sm font-bold text-white/72">{status}</span>
+            <div className="mt-5 border-t border-white/10 pt-4">
+              <div className="px-3 text-[11px] font-bold uppercase tracking-[0.14em] text-white/35">
+                System
+              </div>
+              <nav className="mt-2 space-y-1">
+                {systemNavItems.map((item) => {
+                  const Icon = item.icon;
+
+                  return (
+                    <button
+                      key={item.label}
+                      type="button"
+                      onClick={() => setActiveScreen(item.id)}
+                      className={[
+                        "flex h-10 w-full items-center gap-3 rounded-lg px-3 text-left text-sm font-bold transition",
+                        activeScreen === item.id
+                          ? "bg-green text-black"
+                          : "text-white/58 hover:bg-white/8 hover:text-white",
+                      ].join(" ")}
+                    >
+                      <Icon className="h-4 w-4" />
+                      {item.label}
+                    </button>
+                  );
+                })}
+              </nav>
             </div>
           </div>
         </aside>
@@ -217,38 +235,7 @@ export default function ScenarioDashboard() {
         <div className="flex min-h-0 flex-col gap-4">
           <header className="flex shrink-0 flex-col gap-3 border-b border-white/10 pb-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <div className="flex flex-wrap gap-2">
-                <Badge className="border-green/45 text-green">
-                  Challenge Dashboard
-                </Badge>
-                <Badge>No real-money play</Badge>
-                {isLoadingData ? <Badge>Loading data</Badge> : null}
-                {challengeDataError ? (
-                  <Badge className="border-red-300/30 text-red-100">
-                    Sync failed
-                  </Badge>
-                ) : null}
-                {challengeDataUser?.email ? (
-                  <Badge>Signed in: {challengeDataUser.email}</Badge>
-                ) : null}
-                {lastChallengeSyncAt ? (
-                  <Badge>{lastActiveChallengeCount} DB active</Badge>
-                ) : null}
-                <Badge
-                  className={
-                    assignmentRealtimeStatus === "connected"
-                      ? "border-green/45 text-green"
-                      : assignmentRealtimeStatus === "reconnecting"
-                        ? "border-yellow-200/45 text-yellow-100"
-                        : assignmentRealtimeStatus === "syncing"
-                          ? "border-green/45 text-green"
-                          : "border-white/20 text-white/55"
-                  }
-                >
-                  Sync {assignmentRealtimeStatus}
-                </Badge>
-              </div>
-              <h1 className="mt-3 font-display text-2xl font-black tracking-tight sm:text-3xl">
+              <h1 className="font-display text-2xl font-black tracking-tight sm:text-3xl">
                 {screenTitle}
               </h1>
             </div>
@@ -279,47 +266,6 @@ export default function ScenarioDashboard() {
               </Button>
             </div>
           </header>
-
-          {challengeDataError ? (
-            <div className="shrink-0 rounded-lg border border-red-300/25 bg-red-500/10 px-4 py-3 text-sm text-red-100">
-              Could not sync challenge assignments: {challengeDataError}
-            </div>
-          ) : lastChallengeSyncAt ? (
-            <div className="shrink-0 rounded-lg border border-white/10 bg-black/18 px-4 py-3 text-xs text-white/52">
-              Last sync {formatDateTime(lastChallengeSyncAt)}
-              {challengeDataUser?.email
-                ? ` as ${challengeDataUser.email}`
-                : " with no signed-in Supabase user"}
-              . Loaded {lastActiveChallengeCount} active database assignment
-              {lastActiveChallengeCount === 1 ? "" : "s"}.
-              {assignmentRealtimeMessage ? ` ${assignmentRealtimeMessage}` : ""}
-            </div>
-          ) : null}
-
-          <section className="grid shrink-0 gap-3 md:grid-cols-3">
-            {metrics.map((metric) => {
-              const Icon = metric.icon;
-
-              return (
-                <Card key={metric.label} className="rounded-xl p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="text-xs font-bold uppercase tracking-[0.16em] text-white/42">
-                        {metric.label}
-                      </p>
-                      <div className="mt-2 font-display text-2xl font-black">
-                        {metric.value}
-                      </div>
-                      <p className="mt-1 text-sm text-white/52">{metric.detail}</p>
-                    </div>
-                    <div className="grid h-10 w-10 place-items-center rounded-lg border border-green/20 bg-green/10 text-green">
-                      <Icon size={20} />
-                    </div>
-                  </div>
-                </Card>
-              );
-            })}
-          </section>
 
           <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[1fr_340px]">
             <motion.div
@@ -363,13 +309,6 @@ export default function ScenarioDashboard() {
                             A developer must assign a database challenge to your
                             account before it appears here.
                           </p>
-                          {lastChallengeSyncAt ? (
-                            <p className="mt-3 text-xs text-white/42">
-                              Last sync used{" "}
-                              {challengeDataUser?.email ?? "no signed-in account"} and
-                              loaded {lastActiveChallengeCount} active DB assignments.
-                            </p>
-                          ) : null}
                         </div>
                       ) : (
                         <div className="grid max-h-[48vh] gap-3 overflow-auto pr-1 md:grid-cols-2">
@@ -487,13 +426,6 @@ export default function ScenarioDashboard() {
                             A developer assignment appears here after the dashboard
                             syncs with the database.
                           </p>
-                          {lastChallengeSyncAt ? (
-                            <p className="mt-3 text-xs text-white/42">
-                              Last sync used{" "}
-                              {challengeDataUser?.email ?? "no signed-in account"} and
-                              loaded {lastActiveChallengeCount} active DB assignments.
-                            </p>
-                          ) : null}
                         </div>
                       ) : (
                         <div className="grid gap-3 md:grid-cols-2">
@@ -647,6 +579,95 @@ export default function ScenarioDashboard() {
                       )}
                     </div>
                     </div>
+                  </div>
+                ) : activeScreen === "status" ? (
+                  <div className="min-h-[360px] overflow-auto pr-1">
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <CardTitle className="text-2xl sm:text-3xl">
+                          Dashboard Status
+                        </CardTitle>
+                        <p className="mt-2 max-w-2xl text-sm leading-6 text-white/58">
+                          Account, sync, and assignment loading details.
+                        </p>
+                      </div>
+                      <div className="hidden h-12 w-12 shrink-0 place-items-center rounded-xl border border-green/20 bg-green/10 text-green sm:grid">
+                        <Activity size={24} />
+                      </div>
+                    </div>
+
+                    <div className="mt-6 grid gap-3 md:grid-cols-3">
+                      {metrics.map((metric) => {
+                        const Icon = metric.icon;
+
+                        return (
+                          <Card key={metric.label} className="rounded-xl p-4">
+                            <div className="flex items-start justify-between gap-3">
+                              <div>
+                                <p className="text-xs font-bold uppercase tracking-[0.16em] text-white/42">
+                                  {metric.label}
+                                </p>
+                                <div className="mt-2 font-display text-2xl font-black">
+                                  {metric.value}
+                                </div>
+                                <p className="mt-1 text-sm text-white/52">
+                                  {metric.detail}
+                                </p>
+                              </div>
+                              <div className="grid h-10 w-10 place-items-center rounded-lg border border-green/20 bg-green/10 text-green">
+                                <Icon size={20} />
+                              </div>
+                            </div>
+                          </Card>
+                        );
+                      })}
+                    </div>
+
+                    <div className="mt-6 grid gap-3 md:grid-cols-2">
+                      <div className="rounded-lg border border-white/10 bg-black/30 p-4">
+                        <div className="text-xs font-bold uppercase tracking-[0.14em] text-white/40">
+                          Account
+                        </div>
+                        <div className="mt-2 font-display text-lg font-bold text-white">
+                          {challengeDataUser?.email ?? "No signed-in Supabase user"}
+                        </div>
+                      </div>
+                      <div className="rounded-lg border border-white/10 bg-black/30 p-4">
+                        <div className="text-xs font-bold uppercase tracking-[0.14em] text-white/40">
+                          Active Assignments
+                        </div>
+                        <div className="mt-2 font-display text-lg font-bold text-white">
+                          {lastActiveChallengeCount}
+                        </div>
+                      </div>
+                      <div className="rounded-lg border border-white/10 bg-black/30 p-4">
+                        <div className="text-xs font-bold uppercase tracking-[0.14em] text-white/40">
+                          Realtime Sync
+                        </div>
+                        <div className="mt-2 font-display text-lg font-bold text-white">
+                          {assignmentRealtimeStatus}
+                        </div>
+                        {assignmentRealtimeMessage ? (
+                          <div className="mt-2 text-sm leading-6 text-white/52">
+                            {assignmentRealtimeMessage}
+                          </div>
+                        ) : null}
+                      </div>
+                      <div className="rounded-lg border border-white/10 bg-black/30 p-4">
+                        <div className="text-xs font-bold uppercase tracking-[0.14em] text-white/40">
+                          Last Sync
+                        </div>
+                        <div className="mt-2 font-display text-lg font-bold text-white">
+                          {formatDateTime(lastChallengeSyncAt)}
+                        </div>
+                      </div>
+                    </div>
+
+                    {challengeDataError ? (
+                      <div className="mt-4 rounded-lg border border-red-300/25 bg-red-500/10 px-4 py-3 text-sm text-red-100">
+                        Could not sync challenge assignments: {challengeDataError}
+                      </div>
+                    ) : null}
                   </div>
                 ) : (
                   <div className="grid min-h-[360px] place-items-center rounded-lg border border-dashed border-white/12 bg-black/14 p-6 text-center">

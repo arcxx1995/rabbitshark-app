@@ -11,10 +11,20 @@ const checks = [
     ],
   },
   {
+    file: "supabase/migrations/20260604000000_repair_auth_profile_sync.sql",
+    patterns: [
+      "on_auth_user_created",
+      "public.handle_new_user",
+      "public.search_assignable_users",
+      "from auth.users auth_users",
+    ],
+  },
+  {
     file: "src/lib/challengeDatabase.js",
     patterns: [
       "getCurrentUserChallengeDashboard",
       'rpc("get_current_user_challenge_dashboard"',
+      "search_assignable_users",
       "listAssignmentsForUser",
       "falling back to direct assignment queries",
     ],
