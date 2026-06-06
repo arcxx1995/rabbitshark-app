@@ -1,12 +1,11 @@
-import { useState } from "react";
-import PlayerSeat from "./PlayerSeat";
-import PlayingCard from "./PlayingCard";
+import { useMemo, useState } from "react";
+import { SlidersHorizontal } from "lucide-react";
+import { getBetChipPosition } from "../config/betChipLayouts";
+import { buildPokerTableViewModel } from "../engine/pokerEngine";
+import { PokerTableSurface } from "./PokerTable";
+import ScenarioLog from "./ScenarioLog";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
-import { betChipLayouts } from "../config/betChipLayouts";
-import { seatLayouts } from "../config/seatLayouts";
-import { tableCenterLayout } from "../config/tableCenterLayout";
-import { coordinateStyle } from "../engine/pokerEngine";
 
 const tableFormats = ["6-max", "8-max", "9-max"];
 const positionOrders = {
@@ -24,43 +23,67 @@ function getInitialFormat() {
   return tableFormats.includes(format) ? format : "8-max";
 }
 
-function ChipMarker({ amount }) {
-  return (
-    <div className="flex items-center gap-2 rounded-full border border-green/35 bg-black/75 px-3 py-1.5 text-green shadow-[0_0_28px_rgba(0,255,171,.24)]">
-      <div className="relative h-4 w-7">
-        {[0, 1, 2].map((chip) => (
-          <span
-            key={chip}
-            className="absolute left-0 h-2 w-7 rounded-full border border-black/40 bg-green"
-            style={{ bottom: chip * 3 }}
-          >
-            <span className="absolute inset-x-2 top-1 h-px bg-black/30" />
-          </span>
-        ))}
-      </div>
-      <span className="font-display text-xs font-black tracking-[0.12em]">
-        {amount}
-      </span>
-    </div>
-  );
-}
-
-function buildPreviewPlayers(tableFormat) {
-  return positionOrders[tableFormat].map((position, index) => ({
+function buildPreviewScenario(tableFormat) {
+  const positions = positionOrders[tableFormat];
+  const players = positions.map((position, index) => ({
     name: playerNames[index],
     position,
-    stackBB: index === 0 ? "100 BB" : `${100 + index * 3} BB`,
+    stack: (100 + index * 3) * 100,
     cards: ["As", "Kd"],
-    isHero: index === 0,
     status: "Active",
+  }));
+
+  return {
+    id: `bet-chip-layout-${tableFormat}`,
+    title: `${tableFormat} Bet Chip Layout`,
+    category: "Poker Engine Preview",
+    gameType: "No-Limit Hold'em",
+    tableFormat,
+    blinds: "50/100",
+    effectiveStack: 100,
+    pot: "0 BB",
+    street: "Flop",
+    board: ["Ah", "7d", "2c"],
+    hero: players[0],
+    villains: players.slice(1),
+    previousActions: [
+      "Preview mode: all player bet-chip positions are staged on the table.",
+      "Edit src/config/betChipLayouts.js to reposition these markers.",
+    ],
+    options: [
+      { label: "Fold", points: 0, feedback: "Preview only." },
+      { label: "Call", points: 50, feedback: "Preview only." },
+      { label: "Raise to 3BB", points: 100, feedback: "Preview only." },
+    ],
+    points: 100,
+  };
+}
+
+function buildForcedTableBets(tableView, tableFormat) {
+  return tableView.positions.map((position, index) => ({
+    id: position.id,
+    amount: `${index + 2} BB`,
+    rawAmount: index + 2,
+    from: position,
+    spot: getBetChipPosition(tableFormat, position),
   }));
 }
 
 export default function ChipLayoutPreview() {
   const [tableFormat, setTableFormat] = useState(getInitialFormat);
-  const seats = seatLayouts[tableFormat];
-  const chipLayout = betChipLayouts[tableFormat];
-  const players = buildPreviewPlayers(tableFormat);
+
+  const scenario = useMemo(() => buildPreviewScenario(tableFormat), [tableFormat]);
+  const tableView = useMemo(() => {
+    const baseTableView = buildPokerTableViewModel(scenario, 1);
+
+    return {
+      ...baseTableView,
+      decisionReady: true,
+      tableBets: buildForcedTableBets(baseTableView, tableFormat),
+      chipAnimation: null,
+      visibleBoard: scenario.board,
+    };
+  }, [scenario, tableFormat]);
 
   const setFormat = (format) => {
     setTableFormat(format);
@@ -80,12 +103,14 @@ export default function ChipLayoutPreview() {
             <div className="min-w-0">
               <div className="mb-1 hidden flex-wrap gap-2 sm:flex">
                 <Badge>PREVIEW001</Badge>
+                <Badge>1/1</Badge>
+                <Badge>{scenario.gameType}</Badge>
                 <Badge>{tableFormat}</Badge>
-                <Badge>All staged chips</Badge>
+                <Badge>{scenario.blinds}</Badge>
                 <Badge>src/config/betChipLayouts.js</Badge>
               </div>
               <h1 className="truncate font-display text-sm font-black tracking-tight sm:text-2xl lg:text-3xl">
-                Bet Chip Layout Preview
+                {scenario.title}
               </h1>
             </div>
             <div className="flex shrink-0 items-center gap-2">
@@ -102,68 +127,41 @@ export default function ChipLayoutPreview() {
             </div>
           </header>
 
-          <div className="grid min-h-0 flex-1 place-items-center">
-            <div className="relative aspect-[16/10] max-h-[calc(100dvh-72px)] w-full max-w-[1280px] overflow-hidden rounded-[1.8rem] border border-white/10 bg-black/60 shadow-2xl">
-              <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_15%,rgba(0,255,171,.16),transparent_32%)]" />
-              <div className="absolute bottom-[25%] left-[9.2%] right-[9.2%] top-[11.8%] rounded-full border border-green/25 table-surface-texture shadow-table ring-[16px] ring-white/5">
-                <div
-                  className="absolute min-w-24 -translate-x-1/2 -translate-y-1/2 rounded-lg bg-black/20 px-3 py-1.5 text-center"
-                  style={coordinateStyle(tableCenterLayout.pot)}
-                >
-                  <div className="text-[9px] font-bold uppercase tracking-[0.18em] text-white/45">
-                    Pot
-                  </div>
-                  <div className="font-display text-2xl font-black leading-none text-green sm:text-3xl">
-                    0
-                  </div>
-                </div>
+          <div className="grid min-h-0 flex-1 gap-3 xl:grid-cols-[1fr_360px]">
+            <section className="grid min-h-0 place-items-center">
+              <PokerTableSurface
+                scenario={scenario}
+                tableView={tableView}
+                animationStep={1}
+                isDecisionReady
+                animateTableBets={false}
+                onSelectAction={() => {}}
+                onClearAction={() => {}}
+                onContinue={() => {}}
+              />
+            </section>
 
-                <div
-                  className="absolute flex min-h-20 w-[70%] -translate-x-1/2 -translate-y-1/2 items-center justify-center gap-2.5"
-                  style={coordinateStyle(tableCenterLayout.board)}
-                >
-                  {["Ah", "7d", "2c", "Qs", "4h"].map((card, index) => (
-                    <PlayingCard
-                      key={card}
-                      card={card}
-                      boardSmall
-                      delay={index * 0.04}
-                    />
-                  ))}
+            <aside className="hidden min-h-0 space-y-3 overflow-hidden xl:block">
+              <div className="rounded-2xl border border-green/18 bg-black/35 p-4 shadow-2xl">
+                <div className="flex items-center gap-3">
+                  <div className="grid h-10 w-10 place-items-center rounded-xl bg-green/12 text-green">
+                    <SlidersHorizontal size={19} />
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-[0.18em] text-white/45">
+                      Layout Source
+                    </p>
+                    <p className="font-display text-sm font-black text-green">
+                      src/config/betChipLayouts.js
+                    </p>
+                  </div>
                 </div>
               </div>
-
-              {players.map((player, index) => (
-                <PlayerSeat
-                  key={`${player.position}-${player.name}`}
-                  player={player}
-                  position={seats[index]}
-                  anchor={seats[index].anchor}
-                  cardDock={seats[index].cardDock}
-                  isHero={player.isHero}
-                  showCards={player.isHero}
-                  active
-                  isDealer={player.position === "BTN"}
-                />
-              ))}
-
-              {seats.map((seat, index) => {
-                const chipPosition = chipLayout[seat.id];
-
-                return (
-                  <div
-                    key={`chip-${seat.id}`}
-                    className="pointer-events-none absolute z-30 -translate-x-1/2 -translate-y-1/2"
-                    style={{
-                      left: `${chipPosition.x}%`,
-                      top: `${chipPosition.y}%`,
-                    }}
-                  >
-                    <ChipMarker amount={`${index + 2} BB`} />
-                  </div>
-                );
-              })}
-            </div>
+              <ScenarioLog
+                actions={scenario.previousActions}
+                visibleCount={scenario.previousActions.length}
+              />
+            </aside>
           </div>
         </div>
       </section>

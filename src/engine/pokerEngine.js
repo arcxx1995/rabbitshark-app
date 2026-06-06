@@ -194,6 +194,28 @@ function getActionActor(action, seats) {
   });
 }
 
+const WIN_ACTION_REGEX = /\b(wins?(\s+pot)?|takes?\s+pot|takes?\s+down|collects?)\b/i;
+
+// Returns the single winner seat for a win/collect action, or null when no
+// winner can be resolved (action doesn't match, or multiple seats match —
+// split pot case). Callers should skip win animation on null.
+export function getWinnerForAction(action, seats) {
+  if (!WIN_ACTION_REGEX.test(action)) return null;
+
+  const matched = seats.filter((player) => {
+    const normalized = action.toLowerCase();
+    return (
+      normalized.includes(String(player.position).toLowerCase()) ||
+      normalized.includes(String(player.name).toLowerCase())
+    );
+  });
+
+  // Split pot: multiple named players in one win action — skip animation.
+  if (matched.length !== 1) return null;
+
+  return matched[0];
+}
+
 function getFoldedPositionsForAction(action, seats) {
   const normalizedAction = action.toLowerCase();
 
@@ -224,9 +246,11 @@ function buildFoldEvents(actions, seats) {
   return foldEventsByPosition;
 }
 
-function isStreetRevealAction(action) {
+export function isStreetRevealAction(action) {
   return /\b(flop|turn|river)\b/i.test(action);
 }
+
+const ALL_IN_REGEX = /\b(jams?|shoves?|all-in|all in)\b/i;
 
 function getBetForAction(action, seats, positions, tableFormat, currentStreetWager) {
   const wagerAmount = getActionWagerAmount(action, currentStreetWager);
@@ -239,12 +263,17 @@ function getBetForAction(action, seats, positions, tableFormat, currentStreetWag
 
   if (!origin) return null;
 
+  const isAllIn = ALL_IN_REGEX.test(action);
+
   return {
     id: actor?.position ?? actor?.name ?? `seat-${actorIndex}`,
     amount,
     rawAmount: wagerAmount,
     from: origin,
     spot: getBetChipPosition(tableFormat, origin),
+    isAllIn,
+    // Raw numeric stack before the all-in shove; null for non-all-in bets.
+    stackBefore: isAllIn ? (actor?.stack ?? null) : null,
   };
 }
 
@@ -318,6 +347,8 @@ export function buildPokerTableViewModel(scenario, animationStep) {
     scenario.tableFormat,
   );
   const heroIndex = seats.findIndex((player) => player.isHero);
+  const winnerSeat = latestAction ? getWinnerForAction(latestAction, seats) : null;
+  const winnerIndex = winnerSeat ? seats.indexOf(winnerSeat) : -1;
 
   return {
     positions,
@@ -333,6 +364,15 @@ export function buildPokerTableViewModel(scenario, animationStep) {
             type: "collect",
             bets: previousTableBets,
             target: tableCenterLayout.pot,
+          }
+        : null,
+    winAnimation:
+      winnerSeat && winnerIndex >= 0
+        ? {
+            type: "win",
+            winner: winnerSeat,
+            winnerPosition: positions[winnerIndex],
+            potPosition: tableCenterLayout.pot,
           }
         : null,
   };

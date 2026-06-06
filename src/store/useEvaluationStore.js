@@ -26,27 +26,6 @@ const initialStats = {
 
 const roundScore = (value) => Math.round(value * 10) / 10;
 
-const createChallenge = (evaluation) => ({
-  id:
-    typeof crypto !== "undefined" && crypto.randomUUID
-      ? crypto.randomUUID()
-      : `challenge_${Date.now()}`,
-  title: "Funding Challenge",
-  evaluationId: evaluation.id,
-  status: "Ready",
-  purchasedAt: new Date().toISOString(),
-  startedAt: null,
-  completedAt: null,
-  score: 0,
-  earnedPoints: 0,
-  totalPossiblePoints: evaluation.totalPossiblePoints,
-  funded: false,
-  scenarioResults: [],
-  progressResults: [],
-  currentQuestionIndex: 0,
-  decisionTimeLimitSeconds: DEFAULT_DECISION_TIME_LIMIT_SECONDS,
-});
-
 const getScenarioPool = (category, scenarios) => {
   if (!category || category === "All") return scenarios;
 
@@ -121,12 +100,12 @@ const createDefaultChallengeState = (challengeStateUserId = null) => {
     stats: initialStats,
     isLoadingData: false,
     challengeDataError: null,
-  challengeDataUser: null,
-  challengeStateUserId,
-  assignmentRealtimeStatus: "idle",
-  assignmentRealtimeMessage: "Realtime sync has not started.",
-  lastChallengeSyncAt: null,
-  lastActiveChallengeCount: 0,
+    challengeDataUser: null,
+    challengeStateUserId,
+    assignmentRealtimeStatus: "idle",
+    assignmentRealtimeMessage: "Realtime sync has not started.",
+    lastChallengeSyncAt: null,
+    lastActiveChallengeCount: 0,
   };
 };
 
@@ -463,18 +442,6 @@ export const useEvaluationStore = create(
           ? nextChallenge
           : challenge,
       ),
-    });
-  },
-
-  purchaseChallenge: async () => {
-    const activeEvaluation = get().activeEvaluation;
-    const nextChallenge = createChallenge(activeEvaluation);
-    const activeChallenges = [...get().activeChallenges, nextChallenge];
-
-    set({
-      hasPurchasedChallenge: true,
-      currentChallenge: get().currentChallenge ?? nextChallenge,
-      activeChallenges,
     });
   },
 

@@ -14,3 +14,9 @@ yarn-error.log*
 pnpm-debug.log*
 .vercel
 supabase/.temp/
+# Local AI runtime state
+.atl/
+.agents/
+.claude/
+.gga
+skills-lock.json

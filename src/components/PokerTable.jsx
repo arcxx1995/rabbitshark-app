@@ -1,134 +1,37 @@
+import PropTypes from "prop-types";
 import { useEffect, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
 import { ArrowLeft, Timer } from "lucide-react";
-import ActionPanel from "./ActionPanel";
-import PlayerSeat from "./PlayerSeat";
-import PlayingCard from "./PlayingCard";
 import ScenarioLog from "./ScenarioLog";
 import ScorePanel from "./ScorePanel";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
-import { tableCenterLayout } from "../config/tableCenterLayout";
 import {
   buildPokerTableViewModel,
-  buildSelectedActionMovement,
-  coordinateStyle,
+  isStreetRevealAction,
 } from "../engine/pokerEngine";
 import { useEvaluationStore } from "../store/useEvaluationStore";
+import { PokerTableSurface } from "./PokerTableSurface";
 
-function ChipMarker({ amount }) {
-  return (
-    <div className="flex items-center gap-2 rounded-full border border-green/35 bg-black/75 px-3 py-1.5 text-green shadow-[0_0_28px_rgba(0,255,171,.24)]">
-      <div className="relative h-4 w-7">
-        {[0, 1, 2].map((chip) => (
-          <span
-            key={chip}
-            className="absolute left-0 h-2 w-7 rounded-full border border-black/40 bg-green"
-            style={{ bottom: chip * 3 }}
-          >
-            <span className="absolute inset-x-2 top-1 h-px bg-black/30" />
-          </span>
-        ))}
-      </div>
-      <span className="font-display text-xs font-black tracking-[0.12em]">
-        {amount}
-      </span>
-    </div>
-  );
-}
+// Re-exported for consumers that import PokerTableSurface from this module
+// (e.g. ChipLayoutPreview). Moving it to its own file keeps PokerTable under
+// the 300-line limit while preserving the existing import path contract.
+export { PokerTableSurface };
 
-function TableBetChips({ bets }) {
-  return bets.map((bet) => (
-    <motion.div
-      key={`table-bet-${bet.id}-${bet.amount}`}
-      className="pointer-events-none absolute z-20 -translate-x-1/2 -translate-y-1/2"
-      initial={{
-        left: `${bet.from.x}%`,
-        top: `${bet.from.y}%`,
-        scale: 0.82,
-        opacity: 1,
-      }}
-      animate={{
-        left: `${bet.spot.x}%`,
-        top: `${bet.spot.y}%`,
-        scale: 1,
-        opacity: 1,
-      }}
-      transition={{ duration: 0.58, ease: "easeInOut" }}
-    >
-      <ChipMarker amount={bet.amount} />
-    </motion.div>
-  ));
-}
-
-function AnimatedChipMovement({ animation }) {
-  if (!animation) return null;
-
-  return animation.bets.map((bet) => {
-    const isCollecting = animation.type === "collect";
-    const from = isCollecting ? bet.spot : bet.from;
-    const to = isCollecting ? animation.target ?? tableCenterLayout.pot : bet.spot;
-
-    return (
-      <motion.div
-        key={`${animation.type}-${bet.id}-${bet.amount}-${from.x}-${from.y}`}
-        className="pointer-events-none absolute z-30 -translate-x-1/2 -translate-y-1/2"
-        initial={{
-          left: `${from.x}%`,
-          top: `${from.y}%`,
-          scale: 1,
-          opacity: 1,
-        }}
-        animate={{
-          left: `${to.x}%`,
-          top: `${to.y}%`,
-          scale: 1,
-          opacity: isCollecting ? [1, 1, 0] : 1,
-        }}
-        exit={{ opacity: 0, scale: 0.9 }}
-        transition={{ duration: 0.72, ease: "easeInOut" }}
-      >
-        <ChipMarker amount={bet.amount} />
-      </motion.div>
-    );
-  });
-}
-
-function SelectedActionMovement({ action, heroPosition, tableFormat, scenario }) {
-  if (!action || !heroPosition) return null;
-
-  const movement = buildSelectedActionMovement(
-    action,
-    heroPosition,
-    tableFormat,
-    scenario,
-  );
-
-  if (!movement) return null;
-
-  return (
-    <motion.div
-      key={`selected-action-${action.label}`}
-      className="pointer-events-none absolute z-40 -translate-x-1/2 -translate-y-1/2"
-      initial={{
-        left: `${heroPosition.x}%`,
-        top: `${heroPosition.y}%`,
-        scale: 0.86,
-        opacity: 0,
-      }}
-      animate={{
-        left: `${movement.target.x}%`,
-        top: `${movement.target.y}%`,
-        scale: [0.86, 1.04, 1],
-        opacity: 1,
-      }}
-      exit={{ opacity: 0, scale: 0.92 }}
-      transition={{ duration: 0.72, ease: "easeInOut" }}
-    >
-      <ChipMarker amount={movement.amount} />
-    </motion.div>
-  );
-}
+// Shared animation timing constants. All *_MS values are milliseconds; divide
+// by 1000 when passing to framer-motion transition.duration (which expects seconds).
+const CHIP_ANIM = {
+  BET_PLACE_MS: 580,
+  COLLECT_MS: 720,
+  HERO_PREVIEW_MS: 720,
+  STEP_ADVANCE_BASE_MS: 650,
+  // Must be > COLLECT_MS + render buffer so collect/win chips finish before
+  // the next action renders and overwrites their position data.
+  STEP_ADVANCE_COLLECT_MS: 900,
+  // Board card springs stagger at 80ms/card × up to 5 cards + spring duration (~300ms).
+  STEP_ADVANCE_BOARD_REVEAL_MS: 850,
+  // Nameplate fade is 400ms + visual dwell before the next action reads.
+  STEP_ADVANCE_FOLD_MS: 750,
+};
 
 export default function PokerTable() {
   const scenario = useEvaluationStore((state) => state.currentScenario);
@@ -153,10 +56,15 @@ export default function PokerTable() {
 
   const tableView = buildPokerTableViewModel(scenario, animationStep);
   const isDecisionReady = tableView.decisionReady;
+  const latestAction = animationStep > 0 ? scenario.previousActions[animationStep - 1] : null;
+  const hasFoldThisStep = tableView.seats.some((s) => s.foldedThisStep);
+  const hasBoardRevealNoBets =
+    latestAction !== null &&
+    isStreetRevealAction(latestAction) &&
+    tableView.chipAnimation === null;
   const questionCount = currentChallenge?.evaluation?.questionCount ?? scenarios.length;
   const progressLabel = `${Math.min(currentScenarioIndex + 1, questionCount)}/${questionCount}`;
   const timerDanger = decisionSecondsRemaining <= 8;
-  const heroPosition = tableView.heroPosition;
 
   const handleConfirmAdvance = () => {
     if (isAdvancingQuestion) return;
@@ -177,12 +85,32 @@ export default function PokerTable() {
   useEffect(() => {
     if (isDecisionReady || selectedAction) return undefined;
 
+    const delay =
+      animationStep === 0
+        ? CHIP_ANIM.STEP_ADVANCE_BASE_MS
+        : tableView.chipAnimation !== null || tableView.winAnimation !== null
+          ? CHIP_ANIM.STEP_ADVANCE_COLLECT_MS
+          : hasBoardRevealNoBets
+            ? CHIP_ANIM.STEP_ADVANCE_BOARD_REVEAL_MS
+            : hasFoldThisStep
+              ? CHIP_ANIM.STEP_ADVANCE_FOLD_MS
+              : CHIP_ANIM.STEP_ADVANCE_BASE_MS;
+
     const timer = window.setTimeout(() => {
       advanceAnimation();
-    }, animationStep === 0 ? 650 : 820);
+    }, delay);
 
     return () => window.clearTimeout(timer);
-  }, [advanceAnimation, animationStep, isDecisionReady, selectedAction]);
+  }, [
+    advanceAnimation,
+    animationStep,
+    hasBoardRevealNoBets,
+    hasFoldThisStep,
+    isDecisionReady,
+    selectedAction,
+    tableView.chipAnimation,
+    tableView.winAnimation,
+  ]);
 
   useEffect(() => {
     if (!isDecisionReady || decisionResult || selectedAction) return;
@@ -244,107 +172,18 @@ export default function PokerTable() {
 
         <div className="grid min-h-0 flex-1 gap-3 xl:grid-cols-[1fr_360px]">
           <section className="grid min-h-0 place-items-center">
-            <motion.div
-              key={scenario.id}
-              className="relative aspect-[16/10] max-h-[calc(100dvh-72px)] w-full max-w-[1280px] overflow-hidden rounded-[1.8rem] border border-white/10 bg-black/60 shadow-2xl"
-              initial={{ opacity: 0, scale: 0.985 }}
-              animate={{
-                opacity: isAdvancingQuestion ? 0.62 : 1,
-                scale: isAdvancingQuestion ? 0.992 : 1,
-              }}
-              transition={{ duration: 0.34, ease: "easeInOut" }}
-            >
-              <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_15%,rgba(0,255,171,.16),transparent_32%)]" />
-              <motion.div
-                className="absolute bottom-[25%] left-[9.2%] right-[9.2%] top-[11.8%] rounded-full border border-green/25 table-surface-texture shadow-table ring-[16px] ring-white/5"
-                initial={{ scale: 0.92, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                transition={{ type: "spring", stiffness: 90, damping: 18 }}
-              >
-                <div
-                  className="absolute min-w-24 -translate-x-1/2 -translate-y-1/2 rounded-lg bg-black/20 px-3 py-1.5 text-center"
-                  style={coordinateStyle(tableCenterLayout.pot)}
-                >
-                  <div className="text-[9px] font-bold uppercase tracking-[0.18em] text-white/45">
-                    Pot
-                  </div>
-                  <div className="font-display text-2xl font-black leading-none text-green sm:text-3xl">
-                    {scenario.pot}
-                  </div>
-                </div>
-
-                <div
-                  className="absolute flex min-h-20 w-[70%] -translate-x-1/2 -translate-y-1/2 items-center justify-center gap-2.5"
-                  style={coordinateStyle(tableCenterLayout.board)}
-                >
-                  <AnimatePresence mode="popLayout">
-                    {tableView.visibleBoard.length > 0
-                      ? tableView.visibleBoard.map((card, index) => (
-                          <PlayingCard
-                            key={card}
-                            card={card}
-                            boardSmall
-                            delay={index * 0.08}
-                          />
-                        ))
-                      : [0, 1, 2].map((slot) => (
-                          <div
-                            key={slot}
-                            className="h-16 w-11 rounded-xl border border-dashed border-white/15 bg-black/12 sm:h-20 sm:w-14"
-                          />
-                        ))}
-                  </AnimatePresence>
-                </div>
-              </motion.div>
-
-              <TableBetChips bets={tableView.tableBets} />
-
-              <AnimatePresence mode="wait">
-                <AnimatedChipMovement
-                  key={`chips-${animationStep}`}
-                  animation={tableView.chipAnimation}
-                />
-              </AnimatePresence>
-
-              <AnimatePresence>
-                {isAdvancingQuestion ? (
-                  <SelectedActionMovement
-                    action={selectedAction}
-                    heroPosition={heroPosition}
-                    tableFormat={scenario.tableFormat}
-                    scenario={scenario}
-                  />
-                ) : null}
-              </AnimatePresence>
-
-                {tableView.seats.map((player, index) => (
-                  <PlayerSeat
-                    key={`${player.position}-${player.name}`}
-                    player={player}
-                    position={tableView.positions[index]}
-                    anchor={tableView.positions[index].anchor}
-                    cardDock={tableView.positions[index].cardDock}
-                    isHero={player.isHero}
-                    showCards={player.isHero && animationStep >= 1}
-                    active={player.isHero ? isDecisionReady : player.status === "Active"}
-                    isDealer={player.position === "BTN"}
-                  />
-                ))}
-
-              <div className="absolute inset-x-4 bottom-5 z-40 sm:inset-x-6 sm:bottom-6">
-                <ActionPanel
-                  scenario={scenario}
-                  disabled={!isDecisionReady || Boolean(decisionResult)}
-                  selectedAction={selectedAction}
-                  decisionResult={decisionResult}
-                  onSelectAction={selectAction}
-                  onClearAction={clearSelectedAction}
-                  onContinue={handleConfirmAdvance}
-                  advancing={isAdvancingQuestion}
-                  compact
-                />
-              </div>
-            </motion.div>
+            <PokerTableSurface
+              scenario={scenario}
+              tableView={tableView}
+              animationStep={animationStep}
+              selectedAction={selectedAction}
+              decisionResult={decisionResult}
+              isDecisionReady={isDecisionReady}
+              isAdvancingQuestion={isAdvancingQuestion}
+              onSelectAction={selectAction}
+              onClearAction={clearSelectedAction}
+              onContinue={handleConfirmAdvance}
+            />
           </section>
 
           <aside className="hidden min-h-0 space-y-3 overflow-hidden xl:block">
@@ -360,3 +199,5 @@ export default function PokerTable() {
     </main>
   );
 }
+
+PokerTable.propTypes = {};

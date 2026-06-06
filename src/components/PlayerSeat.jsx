@@ -1,3 +1,4 @@
+import PropTypes from "prop-types";
 import { motion } from "framer-motion";
 import PlayingCard from "./PlayingCard";
 import { cn } from "../lib/utils";
@@ -18,6 +19,7 @@ export default function PlayerSeat({
     (isHero && showCards) || (active && !folded) || foldedThisStep;
   const cardDockClasses = {
     top: "bottom-[58%] left-1/2 h-16 -translate-x-1/2",
+    "top-inset": "bottom-[calc(100%+4px)] left-1/2 h-16 -translate-x-1/2",
     bottom: "left-1/2 top-[58%] h-16 -translate-x-1/2",
     right: "left-[70%] top-1/2 h-14 -translate-y-1/2",
     left: "right-[70%] top-1/2 h-14 -translate-y-1/2",
@@ -83,7 +85,7 @@ export default function PlayerSeat({
         </div>
       ) : null}
 
-      <div
+      <motion.div
         className={cn(
           "relative z-20 h-11 rounded-md border px-2 py-1.5 text-center shadow-2xl transition duration-300",
           isHero
@@ -93,6 +95,12 @@ export default function PlayerSeat({
           folded && "border-white/10 bg-[#12131a] grayscale",
           foldedThisStep && "ring-2 ring-white/20",
         )}
+        // When folded on a previous step (mounting into an already-folded state),
+        // the nameplate is invisible immediately — no animation replay.
+        // When folding this step, fade out over 400ms so it reads as an action.
+        initial={folded && !foldedThisStep ? { opacity: 0 } : { opacity: 1 }}
+        animate={{ opacity: folded ? 0 : 1 }}
+        transition={foldedThisStep ? { duration: 0.4, ease: "easeInOut" } : { duration: 0 }}
       >
         {isDealer ? (
           <span className="absolute -right-2 -top-2 grid h-5 w-5 place-items-center rounded-full border border-black/30 bg-white text-[10px] font-black text-room-950 shadow-lg">
@@ -106,7 +114,29 @@ export default function PlayerSeat({
         <div className="relative z-30 mt-1 px-1 font-display text-[clamp(9px,0.82vw,12px)] font-black leading-none text-gold-400">
           {folded ? "FOLDED" : player.stackBB}
         </div>
-      </div>
+      </motion.div>
     </motion.div>
   );
 }
+
+PlayerSeat.propTypes = {
+  player: PropTypes.shape({
+    name: PropTypes.string,
+    position: PropTypes.string,
+    status: PropTypes.string,
+    folded: PropTypes.bool,
+    foldedThisStep: PropTypes.bool,
+    stackBB: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+    cards: PropTypes.arrayOf(PropTypes.string),
+  }).isRequired,
+  isHero: PropTypes.bool,
+  isDealer: PropTypes.bool,
+  position: PropTypes.shape({
+    x: PropTypes.number.isRequired,
+    y: PropTypes.number.isRequired,
+  }).isRequired,
+  anchor: PropTypes.oneOf(["center", "left-edge", "right-edge", "top-edge", "bottom-edge"]),
+  cardDock: PropTypes.oneOf(["top", "top-inset", "bottom", "right", "left"]),
+  showCards: PropTypes.bool,
+  active: PropTypes.bool,
+};

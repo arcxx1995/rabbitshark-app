@@ -100,7 +100,8 @@ const ASSIGNMENT_LOOKUP_SELECT = `
       version,
       question_count,
       funded_threshold_percent,
-      total_possible_points
+      total_possible_points,
+      evaluation_json
     )
   )
 `;
