@@ -10,6 +10,8 @@ const positionOrders = {
 };
 
 const roundScore = (value) => Math.round(value * 10) / 10;
+const ACTION_VERB_REGEX =
+  /\b(posts?|antes?|checks?|bets?|calls?|raises?|opens?|limps?|completes?|folds?|3-bets?|4-bets?|5-bets?|jams?|shoves?|wins?|takes?|collects?)\b|all[- ]in/i;
 
 export function coordinateStyle(position) {
   return {
@@ -58,30 +60,16 @@ export function evaluatePokerDecision(scenario, option, config = {}) {
   };
 }
 
-function getVisibleBoard(scenario, animationStep) {
-  const structuredReveal = scenario.revealSteps?.find(
-    (step) => step.animationStep === animationStep,
-  );
+function getVisibleBoard(scenario, visibleActions) {
+  const visibleStreetActions = visibleActions.filter(isStreetRevealAction);
+  const latestStreetAction =
+    visibleStreetActions.length > 0
+      ? visibleStreetActions[visibleStreetActions.length - 1].toLowerCase()
+      : "";
 
-  if (structuredReveal?.boardCount !== undefined) {
-    return scenario.board.slice(0, structuredReveal.boardCount);
-  }
-
-  const flopIndex = scenario.previousActions.findIndex((action) =>
-    action.toLowerCase().includes("flop comes"),
-  );
-  const turnIndex = scenario.previousActions.findIndex((action) =>
-    action.toLowerCase().includes("turn comes"),
-  );
-  const riverIndex = scenario.previousActions.findIndex((action) =>
-    action.toLowerCase().includes("river comes"),
-  );
-
-  if (scenario.street === "Preflop") return [];
-  if (riverIndex >= 0 && animationStep > riverIndex) return scenario.board.slice(0, 5);
-  if (turnIndex >= 0 && animationStep > turnIndex) return scenario.board.slice(0, 4);
-  if (flopIndex >= 0 && animationStep > flopIndex) return scenario.board.slice(0, 3);
-  if (animationStep >= scenario.previousActions.length) return scenario.board;
+  if (latestStreetAction.includes("river")) return scenario.board.slice(0, 5);
+  if (latestStreetAction.includes("turn")) return scenario.board.slice(0, 4);
+  if (latestStreetAction.includes("flop")) return scenario.board.slice(0, 3);
   return [];
 }
 
@@ -91,11 +79,13 @@ function buildSeatList(scenario) {
     {
       ...scenario.hero,
       isHero: true,
+      status: "Active",
       stackBB: formatStackInBB(scenario.hero.stack, scenario.blinds),
     },
     ...villains.map((villain) => ({
       ...villain,
       isHero: false,
+      status: "Active",
       stackBB: formatStackInBB(villain.stack, scenario.blinds),
     })),
   ];
@@ -183,15 +173,37 @@ export function getSelectedActionDisplay(option, scenario) {
   return label;
 }
 
-function getActionActor(action, seats) {
-  const normalizedAction = action.toLowerCase();
+function escapeRegex(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
 
-  return seats.find((player) => {
-    return (
-      normalizedAction.includes(String(player.position).toLowerCase()) ||
-      normalizedAction.includes(String(player.name).toLowerCase())
-    );
-  });
+function buildActorTokenRegex(token) {
+  return new RegExp(`(^|[^a-z0-9+])${escapeRegex(token)}(?=$|[^a-z0-9+])`, "i");
+}
+
+function getActorCandidates(seats) {
+  return seats
+    .flatMap((player) => [
+      { player, token: player.name },
+      { player, token: player.position },
+    ])
+    .filter((candidate) => candidate.token)
+    .sort((a, b) => String(b.token).length - String(a.token).length);
+}
+
+function getActionActor(action, seats) {
+  const candidates = getActorCandidates(seats);
+  const trimmedAction = String(action).trim();
+  const starter = candidates.find(({ token }) =>
+    new RegExp(`^${escapeRegex(token)}(?=$|[^a-z0-9+])`, "i").test(trimmedAction),
+  );
+
+  if (starter) return starter.player;
+
+  return (
+    candidates.find(({ token }) => buildActorTokenRegex(token).test(trimmedAction))
+      ?.player ?? null
+  );
 }
 
 const WIN_ACTION_REGEX = /\b(wins?(\s+pot)?|takes?\s+pot|takes?\s+down|collects?)\b/i;
@@ -202,13 +214,11 @@ const WIN_ACTION_REGEX = /\b(wins?(\s+pot)?|takes?\s+pot|takes?\s+down|collects?
 export function getWinnerForAction(action, seats) {
   if (!WIN_ACTION_REGEX.test(action)) return null;
 
-  const matched = seats.filter((player) => {
-    const normalized = action.toLowerCase();
-    return (
-      normalized.includes(String(player.position).toLowerCase()) ||
-      normalized.includes(String(player.name).toLowerCase())
-    );
-  });
+  const matched = seats.filter((player) =>
+    [player.position, player.name]
+      .filter(Boolean)
+      .some((token) => buildActorTokenRegex(token).test(action)),
+  );
 
   // Split pot: multiple named players in one win action — skip animation.
   if (matched.length !== 1) return null;
@@ -251,6 +261,53 @@ export function isStreetRevealAction(action) {
 }
 
 const ALL_IN_REGEX = /\b(jams?|shoves?|all-in|all in)\b/i;
+
+function getActionType(action) {
+  const normalizedAction = action.toLowerCase();
+
+  if (isStreetRevealAction(action)) return "street";
+  if (WIN_ACTION_REGEX.test(action)) return "win";
+  if (/\bfolds?\b/.test(normalizedAction)) return "fold";
+  if (/\bchecks?\b/.test(normalizedAction)) return "check";
+  if (/\bcalls?\b/.test(normalizedAction)) return "call";
+  if (ALL_IN_REGEX.test(action)) return "all-in";
+  if (
+    /\b(posts?|bets?|raises?|opens?|limps?|completes?|3-bets?|4-bets?|5-bets?)\b/.test(
+      normalizedAction,
+    )
+  ) {
+    return "wager";
+  }
+
+  return "info";
+}
+
+function shouldSplitActionSegment(segment, seats) {
+  const trimmedSegment = segment.trim();
+
+  return ACTION_VERB_REGEX.test(trimmedSegment) && Boolean(getActionActor(trimmedSegment, seats));
+}
+
+export function getHandLogAnimationSteps(scenario) {
+  const seats = buildSeatList(scenario);
+
+  return (scenario.previousActions ?? []).flatMap((action, sourceIndex) => {
+    const segments = String(action)
+      .split(/\s*,\s*/)
+      .map((segment) => segment.trim())
+      .filter(Boolean);
+
+    if (segments.length <= 1 || !segments.every((segment) => shouldSplitActionSegment(segment, seats))) {
+      return [{ action, sourceIndex, sourceAction: action }];
+    }
+
+    return segments.map((segment) => ({
+      action: segment,
+      sourceIndex,
+      sourceAction: action,
+    }));
+  });
+}
 
 function getBetForAction(action, seats, positions, tableFormat, currentStreetWager) {
   const wagerAmount = getActionWagerAmount(action, currentStreetWager);
@@ -316,14 +373,22 @@ export function buildSelectedActionMovement(action, heroPosition, tableFormat, s
 export function buildPokerTableViewModel(scenario, animationStep) {
   const positions = seatLayouts[scenario.tableFormat] ?? seatLayouts["6-max"];
   const baseSeats = buildSeatList(scenario).slice(0, positions.length);
-  const visibleActions = scenario.previousActions.slice(0, animationStep);
+  const animationSteps = getHandLogAnimationSteps(scenario);
+  const visibleSteps = animationSteps.slice(0, animationStep);
+  const visibleActions = visibleSteps.map((step) => step.action);
   const latestAction =
-    animationStep > 0 ? scenario.previousActions[animationStep - 1] : null;
+    animationStep > 0 ? animationSteps[animationStep - 1]?.action ?? null : null;
+  const latestActionActor = latestAction ? getActionActor(latestAction, baseSeats) : null;
   const foldEvents = buildFoldEvents(visibleActions, baseSeats);
   const seats = baseSeats.map((player) => {
     const foldEvent = foldEvents.get(player.position);
 
-    if (!foldEvent) return player;
+    if (!foldEvent) {
+      return {
+        ...player,
+        activeThisStep: latestActionActor?.position === player.position,
+      };
+    }
 
     return {
       ...player,
@@ -332,6 +397,7 @@ export function buildPokerTableViewModel(scenario, animationStep) {
       foldAction: foldEvent.action,
       foldActionIndex: foldEvent.actionIndex,
       foldedThisStep: foldEvent.actionIndex === animationStep - 1,
+      activeThisStep: latestActionActor?.position === player.position,
     };
   });
   const tableBets = buildVisibleBets(
@@ -340,8 +406,11 @@ export function buildPokerTableViewModel(scenario, animationStep) {
     positions,
     scenario.tableFormat,
   );
+  const previousVisibleActions = animationSteps
+    .slice(0, Math.max(animationStep - 1, 0))
+    .map((step) => step.action);
   const previousTableBets = buildVisibleBets(
-    scenario.previousActions.slice(0, Math.max(animationStep - 1, 0)),
+    previousVisibleActions,
     seats,
     positions,
     scenario.tableFormat,
@@ -349,14 +418,32 @@ export function buildPokerTableViewModel(scenario, animationStep) {
   const heroIndex = seats.findIndex((player) => player.isHero);
   const winnerSeat = latestAction ? getWinnerForAction(latestAction, seats) : null;
   const winnerIndex = winnerSeat ? seats.indexOf(winnerSeat) : -1;
+  const latestActorIndex = latestActionActor
+    ? seats.findIndex((player) => player.position === latestActionActor.position)
+    : -1;
 
   return {
     positions,
     seats,
     heroIndex,
     heroPosition: heroIndex >= 0 ? positions[heroIndex] : null,
-    visibleBoard: getVisibleBoard(scenario, animationStep),
-    decisionReady: animationStep >= scenario.previousActions.length,
+    visibleBoard: getVisibleBoard(scenario, visibleActions),
+    decisionReady: animationStep >= animationSteps.length,
+    animationStepCount: animationSteps.length,
+    visibleLogCount:
+      visibleSteps.length > 0
+        ? Math.max(...visibleSteps.map((step) => step.sourceIndex)) + 1
+        : 0,
+    latestAction:
+      latestAction !== null
+        ? {
+            label: latestAction,
+            type: getActionType(latestAction),
+            actor: latestActionActor,
+            sourceIndex: animationSteps[animationStep - 1]?.sourceIndex ?? null,
+            position: latestActorIndex >= 0 ? positions[latestActorIndex] : tableCenterLayout.pot,
+          }
+        : null,
     tableBets,
     chipAnimation:
       latestAction && isStreetRevealAction(latestAction) && previousTableBets.length > 0

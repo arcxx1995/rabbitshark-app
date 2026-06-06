@@ -18,11 +18,11 @@ export default function PlayerSeat({
   const hasCards =
     (isHero && showCards) || (active && !folded) || foldedThisStep;
   const cardDockClasses = {
-    top: "bottom-[58%] left-1/2 h-16 -translate-x-1/2",
-    "top-inset": "bottom-[calc(100%+4px)] left-1/2 h-16 -translate-x-1/2",
-    bottom: "left-1/2 top-[58%] h-16 -translate-x-1/2",
-    right: "left-[70%] top-1/2 h-14 -translate-y-1/2",
-    left: "right-[70%] top-1/2 h-14 -translate-y-1/2",
+    top: "left-1/2 top-0 -translate-x-1/2",
+    "top-inset": "left-1/2 top-0 -translate-x-1/2",
+    bottom: "bottom-0 left-1/2 -translate-x-1/2",
+    right: "right-0 top-1/2 -translate-y-1/2",
+    left: "left-0 top-1/2 -translate-y-1/2",
   };
   const anchorClasses = {
     center: "-translate-x-1/2 -translate-y-1/2",
@@ -33,89 +33,97 @@ export default function PlayerSeat({
   };
 
   return (
-    <motion.div
-      className={cn("absolute z-20 w-[11%]", anchorClasses[anchor])}
+    <div
+      className={cn(
+        "absolute z-20 h-[6.75rem] w-[clamp(5.75rem,11vw,8.75rem)]",
+        anchorClasses[anchor],
+      )}
       style={{ left: `${position.x}%`, top: `${position.y}%` }}
-      initial={{ scale: 0.86, opacity: 0 }}
-      animate={{
-        scale: foldedThisStep ? [1, 0.94, 1] : 1,
-        opacity: folded ? 0.46 : 1,
-      }}
-      transition={{
-        duration: foldedThisStep ? 0.58 : undefined,
-        type: foldedThisStep ? "tween" : "spring",
-        stiffness: 180,
-        damping: 18,
-      }}
     >
-      {hasCards ? (
-        <div
-          className={cn(
-          "pointer-events-none absolute z-0 overflow-hidden",
-            cardDockClasses[cardDock],
-          )}
-        >
-          <motion.div
-            className="flex gap-1"
-            animate={
-              foldedThisStep
-                ? {
-                    y: [0, 18, 30],
-                    opacity: [1, 1, 0],
-                    scale: [1, 0.96, 0.9],
-                  }
-                : { y: 0, opacity: 1, scale: 1 }
-            }
-            transition={{ duration: 0.54, ease: "easeInOut" }}
-          >
-            {isHero && showCards
-              ? player.cards.map((card, index) => (
-                  <PlayingCard
-                    key={card}
-                    card={card}
-                    seat
-                    hero={isHero}
-                    delay={index * 0.08}
-                  />
-                ))
-              : [0, 1].map((card) => (
-                  <PlayingCard key={card} hidden seat delay={card * 0.08} />
-                ))}
-          </motion.div>
-        </div>
-      ) : null}
-
       <motion.div
-        className={cn(
-          "relative z-20 h-11 rounded-md border px-2 py-1.5 text-center shadow-2xl transition duration-300",
-          isHero
-            ? "border-cyan-300/30 bg-gradient-to-br from-[#243347] to-[#151722]"
-            : "border-white/8 bg-[#191a24]",
-          active && !folded && "border-cyan-300/60 shadow-[0_0_28px_rgba(34,211,238,.28)] ring-2 ring-cyan-300/35",
-          folded && "border-white/10 bg-[#12131a] grayscale",
-          foldedThisStep && "ring-2 ring-white/20",
-        )}
-        // When folded on a previous step (mounting into an already-folded state),
-        // the nameplate is invisible immediately — no animation replay.
-        // When folding this step, fade out over 400ms so it reads as an action.
-        initial={folded && !foldedThisStep ? { opacity: 0 } : { opacity: 1 }}
-        animate={{ opacity: folded ? 0 : 1 }}
-        transition={foldedThisStep ? { duration: 0.4, ease: "easeInOut" } : { duration: 0 }}
+        className="relative h-full w-full"
+        initial={false}
+        animate={{
+          scale: foldedThisStep ? [1, 0.94, 1] : 1,
+          opacity: 1,
+        }}
+        transition={{
+          duration: foldedThisStep ? 0.58 : undefined,
+          type: foldedThisStep ? "tween" : "spring",
+          stiffness: 180,
+          damping: 18,
+        }}
       >
-        {isDealer ? (
-          <span className="absolute -right-2 -top-2 grid h-5 w-5 place-items-center rounded-full border border-black/30 bg-white text-[10px] font-black text-room-950 shadow-lg">
-            D
-          </span>
+        {hasCards ? (
+          <div
+            className={cn(
+              "pointer-events-none absolute z-30 flex h-10 w-full justify-center overflow-visible sm:h-12",
+              cardDockClasses[cardDock],
+            )}
+          >
+            <motion.div
+              className="flex gap-1"
+              animate={
+                foldedThisStep
+                  ? {
+                      y: [0, 18, 30],
+                      opacity: [1, 1, 0],
+                      scale: [1, 0.96, 0.9],
+                    }
+                  : { y: 0, opacity: 1, scale: 1 }
+              }
+              transition={{ duration: 0.54, ease: "easeInOut" }}
+            >
+              {isHero && showCards
+                ? player.cards.map((card, index) => (
+                    <PlayingCard
+                      key={card}
+                      card={card}
+                      seat
+                      hero={isHero}
+                      delay={index * 0.08}
+                    />
+                  ))
+                : [0, 1].map((card) => (
+                    <PlayingCard key={card} hidden seat delay={card * 0.08} />
+                  ))}
+            </motion.div>
+          </div>
         ) : null}
 
-        <div className="relative z-30 truncate font-display text-[clamp(9px,0.78vw,12px)] font-bold leading-snug text-white">
-          {player.name} <span className="text-white/52">({player.position})</span>
-        </div>
-        <div className="relative z-30 mt-1 px-1 font-display text-[clamp(9px,0.82vw,12px)] font-black leading-none text-gold-400">
-          {folded ? "FOLDED" : player.stackBB}
-        </div>
+        <motion.div
+          className={cn(
+            "absolute inset-x-0 top-[3.25rem] z-20 h-11 rounded-md border px-2 py-1.5 text-center shadow-2xl transition duration-300 sm:top-[3.5rem]",
+            isHero
+              ? "border-cyan-300/30 bg-gradient-to-br from-[#243347] to-[#151722]"
+              : "border-white/8 bg-[#191a24]",
+            active &&
+              !folded &&
+              "border-cyan-300/60 shadow-[0_0_28px_rgba(34,211,238,.28)] ring-2 ring-cyan-300/35",
+            folded && "border-white/10 bg-[#12131a] grayscale",
+            foldedThisStep && "ring-2 ring-white/20",
+          )}
+          initial={false}
+          animate={{ opacity: folded ? 0.62 : 1 }}
+          transition={
+            foldedThisStep ? { duration: 0.4, ease: "easeInOut" } : { duration: 0 }
+          }
+        >
+          {isDealer ? (
+            <span className="absolute -right-2 -top-2 grid h-5 w-5 place-items-center rounded-full border border-black/30 bg-white text-[10px] font-black text-room-950 shadow-lg">
+              D
+            </span>
+          ) : null}
+
+          <div className="relative z-30 truncate font-display text-[clamp(9px,0.78vw,12px)] font-bold leading-snug text-white">
+            {player.name} <span className="text-white/52">({player.position})</span>
+          </div>
+          <div className="relative z-30 mt-1 px-1 font-display text-[clamp(9px,0.82vw,12px)] font-black leading-none text-gold-400">
+            {folded ? "FOLDED" : player.stackBB}
+          </div>
+        </motion.div>
       </motion.div>
-    </motion.div>
+    </div>
   );
 }
 

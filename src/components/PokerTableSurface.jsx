@@ -175,6 +175,50 @@ AnimatedWinMovement.propTypes = {
   }),
 };
 
+function ActionCue({ action }) {
+  if (!action) return null;
+
+  const isTableCue = !action.actor || action.type === "street" || action.type === "info";
+  const cuePosition = isTableCue ? tableCenterLayout.street : action.position;
+  const toneClass =
+    {
+      "all-in": "border-red-400/60 bg-red-950/80 text-red-100",
+      call: "border-cyan-300/45 bg-cyan-950/80 text-cyan-100",
+      check: "border-white/25 bg-black/75 text-white",
+      fold: "border-white/20 bg-black/75 text-white/75",
+      info: "border-green/25 bg-black/75 text-green",
+      street: "border-gold-300/45 bg-black/80 text-gold-300",
+      wager: "border-green/35 bg-black/75 text-green",
+      win: "border-gold-300/55 bg-black/80 text-gold-300",
+    }[action.type] ?? "border-green/25 bg-black/75 text-green";
+
+  return (
+    <motion.div
+      key={`${action.sourceIndex}-${action.label}`}
+      className={cn(
+        "pointer-events-none absolute z-[35] max-w-[min(18rem,45%)] -translate-x-1/2 -translate-y-1/2 rounded-md border px-3 py-1.5 text-center font-display text-[10px] font-black uppercase tracking-[0.12em] shadow-2xl sm:text-xs",
+        toneClass,
+      )}
+      style={{ left: `${cuePosition.x}%`, top: `${cuePosition.y}%` }}
+      initial={{ y: -6, scale: 0.92, opacity: 0 }}
+      animate={{ y: 0, scale: [0.96, 1.04, 1], opacity: [0, 1, 1, 0] }}
+      transition={{ duration: 0.72, ease: "easeInOut" }}
+    >
+      <span className="block truncate">{action.label}</span>
+    </motion.div>
+  );
+}
+
+ActionCue.propTypes = {
+  action: PropTypes.shape({
+    actor: PropTypes.object,
+    label: PropTypes.string.isRequired,
+    position: PropTypes.shape({ x: PropTypes.number, y: PropTypes.number }),
+    sourceIndex: PropTypes.number,
+    type: PropTypes.string.isRequired,
+  }),
+};
+
 function SelectedActionMovement({ action, heroPosition, tableFormat, scenario }) {
   if (!action || !heroPosition) return null;
 
@@ -313,6 +357,10 @@ export function PokerTableSurface({
       </AnimatePresence>
 
       <AnimatePresence>
+        <ActionCue action={tableView.latestAction} />
+      </AnimatePresence>
+
+      <AnimatePresence>
         {isAdvancingQuestion ? (
           <SelectedActionMovement
             action={selectedAction}
@@ -332,7 +380,10 @@ export function PokerTableSurface({
           cardDock={tableView.positions[index].cardDock}
           isHero={player.isHero}
           showCards={player.isHero && animationStep >= 1}
-          active={player.isHero ? isDecisionReady : player.status === "Active"}
+          active={
+            player.activeThisStep ||
+            (player.isHero ? isDecisionReady : player.status === "Active")
+          }
           isDealer={player.position === "BTN"}
         />
       ))}
@@ -367,6 +418,7 @@ PokerTableSurface.propTypes = {
     tableBets: PropTypes.array.isRequired,
     chipAnimation: PropTypes.object,
     winAnimation: PropTypes.object,
+    latestAction: PropTypes.object,
     visibleBoard: PropTypes.array.isRequired,
     seats: PropTypes.array.isRequired,
     positions: PropTypes.array.isRequired,

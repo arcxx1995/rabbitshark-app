@@ -6,7 +6,10 @@ import {
   getEvaluationFiles,
   getScenarioCategories,
 } from "../engine/evaluationEngine";
-import { evaluatePokerDecision } from "../engine/pokerEngine";
+import {
+  evaluatePokerDecision,
+  getHandLogAnimationSteps,
+} from "../engine/pokerEngine";
 import {
   completeAssignedChallenge,
   getCurrentUserChallengeDashboard,
@@ -465,7 +468,7 @@ export const useEvaluationStore = create(
 
   advanceAnimation: () => {
     const { currentScenario, animationStep } = get();
-    const maxStep = currentScenario.previousActions.length;
+    const maxStep = getHandLogAnimationSteps(currentScenario).length;
 
     if (animationStep < maxStep) {
       set({ animationStep: animationStep + 1 });
@@ -524,7 +527,8 @@ export const useEvaluationStore = create(
   clearSelectedAction: () => {
     const { currentScenario, animationStep, decisionSecondsRemaining, decisionResult } =
       get();
-    const decisionReady = animationStep >= currentScenario.previousActions.length;
+    const decisionReady =
+      animationStep >= getHandLogAnimationSteps(currentScenario).length;
 
     if (decisionResult) return;
 

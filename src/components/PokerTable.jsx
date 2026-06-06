@@ -56,7 +56,7 @@ export default function PokerTable() {
 
   const tableView = buildPokerTableViewModel(scenario, animationStep);
   const isDecisionReady = tableView.decisionReady;
-  const latestAction = animationStep > 0 ? scenario.previousActions[animationStep - 1] : null;
+  const latestAction = tableView.latestAction?.label ?? null;
   const hasFoldThisStep = tableView.seats.some((s) => s.foldedThisStep);
   const hasBoardRevealNoBets =
     latestAction !== null &&
@@ -190,7 +190,7 @@ export default function PokerTable() {
             <ScorePanel compact />
             <ScenarioLog
               actions={scenario.previousActions}
-              visibleCount={animationStep}
+              visibleCount={tableView.visibleLogCount}
             />
           </aside>
         </div>

@@ -39,7 +39,7 @@ export default function PlayingCard({
           ? "border-green/35 bg-gradient-to-br from-black via-[#003a2a] to-green"
           : "border-black/15 bg-[#f8f2df]",
       )}
-      initial={{ y: -18, rotate: -5, opacity: 0 }}
+      initial={seat ? false : { y: -18, rotate: -5, opacity: 0 }}
       animate={{ y: 0, rotate: 0, opacity: 1 }}
       transition={{ delay, type: "spring", stiffness: 220, damping: 18 }}
       aria-label={hidden ? "Face down card" : `${rank} of ${suit?.label}`}
