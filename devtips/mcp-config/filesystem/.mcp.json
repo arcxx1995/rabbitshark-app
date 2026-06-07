@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "filesystem": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-filesystem",
+        "/Users/you/work/api",
+        "/Users/you/work/worker",
+        "/Users/you/work/infra",
+        "/Users/you/scratch"
+      ]
+    }
+  }
+}

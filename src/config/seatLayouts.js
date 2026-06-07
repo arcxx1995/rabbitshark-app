@@ -13,9 +13,9 @@ export const seatLayouts = {
     { id: "seat_2_right_mid", x: 84.1, y: 40.6, anchor: "center", cardDock: "top" },
     { id: "seat_3_right_upper", x: 78.6, y: 14.2, anchor: "center", cardDock: "top" },
     { id: "seat_4_top_right", x: 46.6, y: 10.5, anchor: "center", cardDock: "top" },
+    { id: "seat_5_top_left", x: 29.6, y: 10.5, anchor: "center", cardDock: "top" },
     { id: "seat_6_left_upper", x: 14.4, y: 14.2, anchor: "center", cardDock: "top" },
     { id: "seat_7_left_mid", x: 5.2, y: 40.6, anchor: "center", cardDock: "top" },
-    { id: "seat_8_bottom_left", x: 14.4, y: 70.3, anchor: "center", cardDock: "top" },
   ],
   "9-max": [
     { id: "seat_0_hero", x: 46.6, y: 74.8, anchor: "center", cardDock: "top" },

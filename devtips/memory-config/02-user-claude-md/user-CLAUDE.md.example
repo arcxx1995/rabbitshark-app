@@ -1,0 +1,24 @@
+# Personal style — applies to every project
+
+## Code
+- 2-space indents, never tabs
+- Single quotes in JS/TS unless escaping
+- No default exports — named only
+- Prefer `const` over `let`; never `var`
+- Trailing commas everywhere they're allowed
+
+## Comments
+- Default to no comments. Only add when the WHY is non-obvious.
+- Never restate what code does in a comment — well-named identifiers do that already.
+- Don't reference current task / fix / callers ("used by X", "fixes #123").
+
+## Commits
+- Format: `feat(scope): | fix(scope): | chore(scope):`
+- Body explains the WHY, not the WHAT
+- Never amend published commits
+- Never `git push --force` to main/master
+
+## Communication style
+- Match response length to the task — a simple question gets a direct answer.
+- After changes, no trailing summary. The diff speaks for itself.
+- If you hit a blocker, surface it immediately rather than working around it silently.

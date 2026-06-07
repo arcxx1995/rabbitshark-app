@@ -1,0 +1,26 @@
+# Project conventions (Claude reads this on session start)
+
+## Stack
+- Package manager: **pnpm** (never npm or yarn)
+- Backend: fastify (not express)
+- ORM: prisma
+- Tests: vitest, located in `__tests__/` next to source
+- Lint/format: biome (not eslint+prettier)
+
+## Don't
+- Don't import from `src/legacy/` — it's deprecated, slated for removal
+- Don't add new ORM models without updating `prisma/schema.prisma` first
+- Don't use default exports — named only
+- Don't write comments unless the WHY is non-obvious
+
+## Commands you'll need
+- `pnpm dev`           start the API
+- `pnpm test:watch`    re-run on save
+- `pnpm db:migrate`    apply latest schema
+- `pnpm lint`          biome check + format
+
+## Where things live
+- API routes: `src/api/<domain>/`
+- Schemas (zod): `src/schema/`
+- Background jobs: `src/jobs/`
+- Tests: `src/**/__tests__/<file>.test.ts`

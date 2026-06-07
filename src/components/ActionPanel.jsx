@@ -3,6 +3,13 @@ import { motion } from "framer-motion";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 
+function formatPotLabel(pot) {
+  const label = String(pot ?? "").trim();
+
+  if (!label) return "0 BB";
+  return /\bbb\b/i.test(label) ? label : `${label} BB`;
+}
+
 export default function ActionPanel({
   scenario,
   disabled,
@@ -14,6 +21,8 @@ export default function ActionPanel({
   advancing = false,
   compact = false,
 }) {
+  const potLabel = formatPotLabel(scenario.pot);
+
   if (compact) {
     return (
       <section className="px-1 pb-1">
@@ -31,7 +40,7 @@ export default function ActionPanel({
               Pot
             </div>
             <div className="font-display text-xs font-black text-green sm:text-sm">
-              {scenario.pot} BB
+              {potLabel}
             </div>
           </div>
         </div>
@@ -110,7 +119,7 @@ export default function ActionPanel({
               Pot
             </div>
             <div className="font-display text-xl font-bold text-green">
-              {scenario.pot} BB
+              {potLabel}
             </div>
           </div>
         </div>

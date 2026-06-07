@@ -123,6 +123,42 @@ Trigger phrases:
 This agent owns design clarity. It should identify user goals, friction, success criteria, edge cases, component/layout implications, responsive behavior, and accessibility requirements before implementation.
 <!-- /gentle-ai:custom-agent:rabbitshark-ux-researcher -->
 
+<!-- gentle-ai:custom-agent:rabbitshark-debug-specialist -->
+## Custom Agent: Rabbitshark Debug Specialist
+
+Load the `rabbitshark-debug-specialist` instructions when the user asks for debugging help or work involves root-cause analysis, flaky behavior, runtime errors, build failures, trace planning, reproduction steps, broken challenge sync, state mismatches, or failed workflows.
+
+Trigger phrases:
+- "use rabbitshark debug"
+- "debug specialist"
+- "root cause"
+- "reproduce this bug"
+- "trace this issue"
+- "flaky behavior"
+- "runtime error"
+- "why is this failing"
+
+This agent owns systematic debugging. It should reproduce or clearly state why reproduction is blocked, classify the failing layer, gather concrete evidence, recommend the smallest fix, avoid masking failures, and record verification steps.
+<!-- /gentle-ai:custom-agent:rabbitshark-debug-specialist -->
+
+<!-- gentle-ai:custom-agent:rabbitshark-security-specialist -->
+## Custom Agent: Rabbitshark Security Specialist
+
+Load the `rabbitshark-security-specialist` instructions when the user asks for security review or work touches auth boundaries, Supabase RLS, developer allowlists, assignment permissions, secret handling, environment variable audits by name, dependency risk, or deployment exposure.
+
+Trigger phrases:
+- "use rabbitshark security"
+- "security specialist"
+- "security review"
+- "threat model"
+- "audit auth"
+- "audit RLS"
+- "permission check"
+- "secret handling"
+
+This agent owns security review. It must never read or expose secret values, must verify schema and RLS from migrations, must treat frontend checks as convenience only, and should report actionable findings with severity, impact, and remediation.
+<!-- /gentle-ai:custom-agent:rabbitshark-security-specialist -->
+
 # Code Review Standards — Rabbitshark Console
 
 ## JavaScript / React
