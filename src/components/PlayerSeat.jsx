@@ -35,7 +35,7 @@ export default function PlayerSeat({
   return (
     <div
       className={cn(
-        "absolute z-20 h-[clamp(5rem,13.5vw,6.75rem)] w-[clamp(5.25rem,11vw,8.75rem)]",
+        "absolute z-20 h-[clamp(5rem,13.5cqw,6.75rem)] w-[clamp(5.25rem,11cqw,8.75rem)]",
         anchorClasses[anchor],
       )}
       style={{ left: `${position.x}%`, top: `${position.y}%` }}
@@ -57,8 +57,8 @@ export default function PlayerSeat({
         {hasCards ? (
           <div
             className={cn(
-              "pointer-events-none absolute flex h-9 w-full justify-center overflow-visible sm:h-12",
-              isHero ? "z-10" : "z-30",
+              "pointer-events-none absolute flex h-[clamp(2.25rem,3.8cqw,3rem)] w-full justify-center overflow-visible sm:h-[clamp(2.75rem,4.2cqw,3.5rem)]",
+              "z-10",
               cardDockClasses[cardDock],
             )}
           >
@@ -94,7 +94,7 @@ export default function PlayerSeat({
 
         <motion.div
           className={cn(
-            "absolute inset-x-0 top-[clamp(2.65rem,7vw,3.5rem)] z-20 h-[clamp(2.35rem,5.8vw,2.75rem)] rounded-md border px-2 py-1.5 text-center shadow-2xl transition duration-300",
+            "absolute inset-x-0 top-[clamp(2.65rem,7cqw,3.5rem)] z-20 h-[clamp(2.35rem,5.8cqw,2.75rem)] rounded-md border px-2 py-1.5 text-center shadow-2xl transition duration-300",
             isHero
               ? "border-cyan-300/30 bg-gradient-to-br from-[#243347] to-[#151722]"
               : "border-white/8 bg-[#191a24]",

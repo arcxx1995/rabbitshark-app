@@ -25,21 +25,30 @@ function ChipMarker({ amount, isAllIn = false }) {
   const chipColor = isAllIn ? "bg-red-400" : "bg-green";
 
   return (
-    <div className={`flex items-center gap-2 rounded-full border bg-black/75 px-3 py-1.5 ${borderClass}`}>
-      <div className={cn("relative w-7", isAllIn ? "h-[18px]" : "h-4")}>
+    <div
+      className={`flex items-center gap-[clamp(0.35rem,0.6cqw,0.5rem)] rounded-full border bg-black/75 px-[clamp(0.65rem,1cqw,0.9rem)] py-[clamp(0.3rem,0.5cqw,0.45rem)] ${borderClass}`}
+    >
+      <div
+        className={cn(
+          "relative",
+          isAllIn
+            ? "h-[clamp(1.1rem,1.4cqw,1.15rem)] w-[clamp(1.25rem,1.8cqw,1.75rem)]"
+            : "h-[clamp(0.9rem,1.1cqw,1rem)] w-[clamp(1.25rem,1.8cqw,1.75rem)]",
+        )}
+      >
         {Array.from({ length: chipCount }, (_, chip) => (
           <span
             key={chip}
             // Chip stack offset is computed at runtime; Tailwind JIT cannot
             // statically analyse interpolated arbitrary classes like [bottom:Xpx].
             style={{ bottom: `${chip * 3}px` }}
-            className={`absolute left-0 h-2 w-7 rounded-full border border-black/40 ${chipColor}`}
+            className={`absolute left-0 h-[clamp(0.35rem,0.45cqw,0.5rem)] w-[clamp(1.25rem,1.8cqw,1.75rem)] rounded-full border border-black/40 ${chipColor}`}
           >
             <span className="absolute inset-x-2 top-1 h-px bg-black/30" />
           </span>
         ))}
       </div>
-      <span className="font-display text-xs font-black tracking-[0.12em]">
+      <span className="font-display text-[clamp(0.55rem,0.95cqw,0.75rem)] font-black tracking-[0.12em]">
         {amount}
       </span>
     </div>
@@ -281,7 +290,7 @@ export function PokerTableSurface({
   return (
     <motion.div
       key={scenario.id}
-      className="relative aspect-[16/10] max-h-[calc(100dvh-72px)] w-full max-w-[1280px] overflow-hidden rounded-[1.8rem] border border-white/10 bg-black/60 shadow-2xl"
+      className="relative aspect-[16/10] max-h-[calc(100dvh-72px)] w-full max-w-[1280px] overflow-hidden rounded-[1.8rem] border border-white/10 bg-black/60 shadow-2xl [container-type:size]"
       initial={{ opacity: 0, scale: 0.985 }}
       animate={{
         opacity: isAdvancingQuestion ? 0.62 : 1,

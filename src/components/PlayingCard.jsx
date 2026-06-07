@@ -27,13 +27,13 @@ export default function PlayingCard({
       className={cn(
         "relative grid shrink-0 place-items-center overflow-hidden rounded-xl border shadow-card",
         seat && hero
-          ? "h-14 w-10 text-sm sm:h-16 sm:w-11 sm:text-base"
+          ? "h-[clamp(2.5rem,4.4cqw,4rem)] w-[clamp(1.75rem,3.1cqw,2.75rem)] text-sm sm:h-[clamp(2.9rem,4.8cqw,4.5rem)] sm:w-[clamp(2rem,3.4cqw,3rem)] sm:text-base"
           : seat
-            ? "h-9 w-6 text-[10px] sm:h-10 sm:w-7 sm:text-[11px]"
+            ? "h-[clamp(2rem,2.8cqw,2.5rem)] w-[clamp(1.3rem,1.9cqw,1.8rem)] text-[10px] sm:h-[clamp(2.2rem,3.2cqw,2.75rem)] sm:w-[clamp(1.45rem,2.2cqw,2rem)] sm:text-[11px]"
             : small
               ? "h-8 w-6 text-[10px]"
               : boardSmall
-                ? "h-16 w-11 text-sm sm:h-20 sm:w-14 sm:text-lg"
+                ? "h-[clamp(4rem,6.25cqw,5rem)] w-[clamp(2.75rem,4.4cqw,3.5rem)] text-sm sm:h-[clamp(5rem,6.25cqw,5rem)] sm:w-[clamp(3.5rem,4.4cqw,3.5rem)] sm:text-lg"
                 : "h-14 w-10 text-base sm:h-24 sm:w-16 sm:text-xl",
         hidden
           ? "border-green/35 bg-gradient-to-br from-black via-[#003a2a] to-green"
